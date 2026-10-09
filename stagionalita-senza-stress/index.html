@@ -111,6 +111,7 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .card-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .asset-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .asset{font-size:18px;font-weight:700;font-stretch:108%}
+.tk{font-size:13px;font-weight:500;color:var(--fg-3)}
 .sub{font-size:13px;color:var(--fg-3);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .kpi{background:var(--muted);border-radius:var(--radius);padding:8px 10px}
@@ -277,7 +278,7 @@ const S = {
   updatedAt: null,
   f: {status: "ATTIVA", classe: "", q: ""}
 };
-try { const saved = JSON.parse(localStorage.getItem("sss-filters-v2") || "null"); if (saved) Object.assign(S.f, saved, {q: ""}); } catch(e) {}
+try { const saved = JSON.parse(localStorage.getItem("sss-filters-v2") || "null"); if (saved && saved.classe) S.f.classe = saved.classe; } catch(e) {}
 
 /* ---------- parsing ---------- */
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -471,7 +472,7 @@ function card(it){
   return `<a class="card" href="/dettaglio/${encodeURIComponent(it.id)}">
     <div class="card-top">${ring(it.score, 56)}
       <div class="card-id">
-        <div class="asset-line"><span class="asset">${esc(it.asset)}</span>${clsTag(it.classe)}${flagTag(it)}</div>
+        <div class="asset-line"><span class="asset">${esc(it.nome || it.asset)}</span>${it.nome ? `<span class="tk">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${flagTag(it)}</div>
         <div class="sub">${dirHtml(it.dir)}<span>·</span><span>${dShort(it.start)} → ${dShort(it.end)}</span></div>
       </div>${stTag(it.status)}</div>
     <div class="kpis">
@@ -582,7 +583,7 @@ function viewCalendar(items){
   else body = groups.map(g => `<section class="month"><div class="month-h">${g.label} <span class="tag cls-Ap">${g.items.length} ${g.items.length === 1 ? "stagionalità" : "stagionalità"}</span></div>
     ${g.items.map(i => `<a class="row" href="/dettaglio/${encodeURIComponent(i.id)}">
       <div class="date"><small>${MESI[i.start.getMonth()]}</small><b>${String(i.start.getDate()).padStart(2,"0")}</b></div>
-      <div class="mid"><div class="asset-line"><span class="asset" style="font-size:16px">${esc(i.asset)}</span>${clsTag(i.classe)}${flagTag(i)}</div>
+      <div class="mid"><div class="asset-line"><span class="asset" style="font-size:16px">${esc(i.nome || i.asset)}</span>${i.nome ? `<span class="tk">${esc(i.asset)}</span>` : ""}${clsTag(i.classe)}${flagTag(i)}</div>
         <div class="meta">${dirHtml(i.dir)}<span>${dShort(i.start)} → ${dShort(i.end)}</span>${stTag(i.status)}<span>AVG <b class="${i.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(i.avg)}</b></span></div></div>
       <div class="sc">Score<b>${i.score ?? "—"}</b></div></a>`).join("")}</section>`).join("");
   return `<div class="cal-hero"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><rect width="44" height="44" rx="11" fill="var(--navy)"/><rect x="11" y="13" width="22" height="19" rx="3" fill="none" stroke="var(--blue-2)" stroke-width="2"/><path d="M11 19h22M17 10v6M27 10v6" stroke="var(--blue-2)" stroke-width="2" stroke-linecap="round"/></svg>
@@ -647,7 +648,7 @@ function route(){
   document.getElementById("nav-home").setAttribute("aria-current", nav === "home" ? "page" : "false");
   document.getElementById("nav-cal").setAttribute("aria-current", nav === "cal" ? "page" : "false");
   const it = m ? items.find(i => i.id === decodeURIComponent(m[1])) : null;
-  document.title = it ? (it.nome || it.asset) + " · Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
+  document.title = it ? (it.nome || it.asset) + " ·Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
   if (keepFocus){ const q = document.getElementById("q"); if (q){ q.focus(); try{ q.setSelectionRange(pos, pos); }catch(e){} } }
 }
 function go(href){
@@ -663,7 +664,7 @@ document.addEventListener("click", e => {
   if (st){ S.f.status = st.dataset.st; saveF(); go("/"); return; }
   if (e.target.closest("#refresh")){ load(true); return; }
   const a = e.target.closest("a[href^='/']");
-  if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0 && a.target !== "_blank"){ e.preventDefault(); go(a.getAttribute("href")); }
+  if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0 && a.target !== "_blank"){ e.preventDefault(); const href = a.getAttribute("href"); if (href === "/" && !a.classList.contains("back")) S.f.status = "ATTIVA"; go(href); }
 });
 document.addEventListener("input", e => { if (e.target.id === "q"){ S.f.q = e.target.value; route(); } });
 document.addEventListener("change", e => { if (e.target.id === "classe"){ S.f.classe = e.target.value; saveF(); route(); } });
