@@ -1,0 +1,7 @@
+{
+  "name": "stagionalita-senza-stress",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Stagionalità ordinate per score, con backtest del Metodo C2. Dati dal Diario Trade su Google Sheets.",
+  "engines": { "node": ">=18" }
+}

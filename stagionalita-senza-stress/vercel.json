@@ -1,0 +1,7 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/calendario", "destination": "/index.html" },
+    { "source": "/dettaglio/:id", "destination": "/index.html" }
+  ]
+}
