@@ -256,6 +256,7 @@ const TV_SYMBOLS = {
   "COCOA":"ICEUS:CC1!","SUGAR":"ICEUS:SB1!","COFFEE":"ICEUS:KC1!",
   "SBUSX":"ICEUS:SB1!","KCUSX":"ICEUS:KC1!","CCUSX":"ICEUS:CC1!","CTUSX":"ICEUS:CT1!","OJUSX":"ICEUS:OJ1!",
   "S&P 500":"SP:SPX","SPX":"SP:SPX","NASDAQ 100":"NASDAQ:NDX","NDX":"NASDAQ:NDX","DAX 40":"XETR:DAX","DAX":"XETR:DAX",
+  "^GSPC":"SP:SPX","^NDX":"NASDAQ:NDX","^GDAXI":"XETR:DAX",
   "BTCUSD":"BITSTAMP:BTCUSD","ETHUSD":"BITSTAMP:ETHUSD"
 };
 function tvSymbol(asset){
@@ -500,7 +501,7 @@ function viewDetail(items, id){
   return `
   <a class="back" href="/">← Torna alla lista</a>
   ${stateNotice()}
-  <div class="dhead"><h1>${esc(it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.nome)}</span>` : ""}${clsTag(it.classe)}${stTag(it.status)}${flagTag(it)}</div>
+  <div class="dhead"><h1>${esc(it.nome || it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${stTag(it.status)}${flagTag(it)}</div>
 
   <section class="keys" aria-label="Dati principali">
     <div class="key key-score">${ring(it.score, 132)}<div class="s" style="text-align:center">Affidabilità statistica</div></div>
@@ -646,7 +647,7 @@ function route(){
   document.getElementById("nav-home").setAttribute("aria-current", nav === "home" ? "page" : "false");
   document.getElementById("nav-cal").setAttribute("aria-current", nav === "cal" ? "page" : "false");
   const it = m ? items.find(i => i.id === decodeURIComponent(m[1])) : null;
-  document.title = it ? it.asset + " · Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
+  document.title = it ? (it.nome || it.asset) + " · Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
   if (keepFocus){ const q = document.getElementById("q"); if (q){ q.focus(); try{ q.setSelectionRange(pos, pos); }catch(e){} } }
 }
 function go(href){
