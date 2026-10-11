@@ -5,7 +5,7 @@
 const SHEET_ID = process.env.SHEET_ID || "1ZkUysiJOcvuRUwkqa5lu0CTaN2IRMVtjOA2b9gvoey4";
 const DIARIO_GID = process.env.DIARIO_GID || "121658962";   // tab "Diario Trade"
 const CAL_GID = process.env.CAL_GID || "2001";              // tab "Calendario 2026"
-const DIARIO_RANGE = process.env.DIARIO_RANGE || "A3:BI400"; // riga 3 = intestazioni
+const DIARIO_RANGE = process.env.DIARIO_RANGE || "A3:BJ400"; // riga 3 = intestazioni (BJ = PUBBLICA SUL SITO)
 const CAL_RANGE = process.env.CAL_RANGE || "A2:O400";        // riga 2 = intestazioni
 
 function parseCSV(text) {
@@ -43,7 +43,10 @@ async function readRange(gid, range) {
 
 module.exports = async (req, res) => {
   try {
-    const [diario, cal] = await Promise.all([readRange(DIARIO_GID, DIARIO_RANGE), readRange(CAL_GID, CAL_RANGE)]);
+    let [diario, cal] = await Promise.all([readRange(DIARIO_GID, DIARIO_RANGE), readRange(CAL_GID, CAL_RANGE)]);
+    // Mostra sul sito solo le righe con "PUBBLICA SUL SITO" = SÌ (short e forex restano nel diario come studio)
+    const pub = (diario[0] || []).findIndex(h => String(h).trim().toUpperCase() === "PUBBLICA SUL SITO");
+    if (pub >= 0) diario = [diario[0], ...diario.slice(1).filter(r => !/^NO/i.test(String(r[pub] || "").trim()))];
     const fresh = req.query && req.query.fresh;
     res.setHeader("Cache-Control", fresh ? "no-store" : "s-maxage=300, stale-while-revalidate=600");
     res.status(200).json({ ok: true, updatedAt: Date.now(), diario, cal });
