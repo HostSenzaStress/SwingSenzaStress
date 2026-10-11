@@ -340,6 +340,7 @@ function build(){
     const id = String(g("ID") || "").trim();
     const asset = String(g("Asset") || "").trim();
     if (!id || !asset) return;
+    if (/^NO/i.test(String(g("PUBBLICA SUL SITO") || "").trim())) return; // short e forex restano solo nel diario
     const periodo = String(g("Periodo stagionale") || "");
     const parts = periodo.split("-").map(s => s.trim());
     const start = pdate(parts[0]), end = pdate(parts[1]);
