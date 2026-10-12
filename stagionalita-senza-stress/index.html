@@ -124,11 +124,12 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .card-foot b{color:var(--fg)}
 .card-foot .go{color:var(--blue);font-weight:600}
 
-/* Score ring */
-.ring{position:relative;flex:none}
-.ring svg{display:block}
-.ring .n{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:800;line-height:1}
-.ring .n small{font-size:10px;letter-spacing:.12em;font-weight:600;color:var(--fg-3);margin-top:4px}
+/* Classe statistica (badge grande) */
+.cbig{flex:none;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--radius);font-weight:800;line-height:1;font-stretch:112%;letter-spacing:-.02em}
+.cbig small{font-size:10px;letter-spacing:.12em;font-weight:600;margin-top:6px;opacity:.8}
+.cbig.cls-S{background:var(--navy);color:#fff}
+.cbig.cls-Ap{background:var(--blue-soft);color:var(--blue)}
+.cbig.cls-A{background:var(--muted);color:var(--fg-2)}
 
 /* States */
 .notice{border:1px solid var(--border);background:var(--muted);border-radius:var(--radius);padding:16px 18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
@@ -359,7 +360,7 @@ function build(){
       avg10: num(g("AVG 10Y")), avg20: num(g("AVG 20Y")), avgOpp: num(g("AVG Opposto")),
       ddMed: num(g("DD Medio")), ddMin: num(g("DD Min")), ddMax: num(g("DD Max")),
       avgRatio: num(g("AVG Ratio")), vp: num(g("Rapporto V/P Medio")),
-      classe: String(g("Classe") || "").trim(), score: num(g("SCORE")),
+      classe: String(g("Classe") || "").trim(),
       trigDate: String(g("Data Trigger") || "").trim(), entry: String(g("Entry") || "").trim(),
       tp: String(g("TP") || "").trim(), sl: String(g("SL") || "").trim(), rr: num(g("R:R")),
       esitoR: num(g("Esito R")), chiusura: String(g("Data Chiusura") || "").trim(), esito,
@@ -387,14 +388,11 @@ function flagTag(it){
   return "";
 }
 const dirHtml = (d, big) => `<span class="dir ${d === "LONG" ? "long" : "short"}">${d === "LONG" ? "▲" : "▼"} ${d}${big ? "" : ""}</span>`;
-function ring(score, size){
-  const s = score == null ? 0 : Math.max(0, Math.min(100, score));
-  const sw = size > 100 ? 10 : 6, r = (size - sw) / 2, c = 2 * Math.PI * r;
-  const col = s >= 80 ? "var(--long)" : s >= 50 ? "var(--blue)" : "var(--fg-3)";
-  return `<div class="ring" style="width:${size}px;height:${size}px" role="img" aria-label="Score ${score == null ? "n.d." : score} su 100">
-    <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--muted)" stroke-width="${sw}"/>
-    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${c * s / 100} ${c}" transform="rotate(-90 ${size/2} ${size/2})"/></svg>
-    <div class="n" style="font-size:${Math.round(size * .3)}px">${score == null ? "—" : score}${size > 100 ? "<small>SCORE</small>" : ""}</div></div>`;
+const CLS_RANK = {"S": 3, "A+": 2, "A": 1};
+const clsRank = c => CLS_RANK[c] || 0;
+function clsBig(c, size){
+  const k = c === "S" ? "cls-S" : c === "A+" ? "cls-Ap" : "cls-A";
+  return `<div class="cbig ${k}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * (c && c.length > 1 ? .36 : .44))}px" role="img" aria-label="Classe ${c ? esc(c) : "n.d."}">${c ? esc(c) : "—"}${size > 100 ? "<small>CLASSE</small>" : ""}</div>`;
 }
 function barChart(years){
   const ys = years.slice().sort((a, b) => a.y - b.y);
@@ -439,7 +437,7 @@ function viewHome(items){
       (S.f.status === "TUTTI" || i.status === S.f.status) &&
       (!S.f.classe || i.classe === S.f.classe) &&
       (!q || (i.asset + " " + i.nome).toLowerCase().includes(q)))
-    .sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || (a.start - b.start));
+    .sort((a, b) => clsRank(b.classe) - clsRank(a.classe) || (a.start - b.start));
   const tile = (k, label) => `<button class="tile" data-st="${k}" aria-pressed="${S.f.status === k}"><div class="k">${label}</div><div class="v">${S.loading && !S.diario ? "–" : cnt[k]}</div></button>`;
   const pill = (k, label) => `<button class="pill-btn" data-st="${k}" aria-pressed="${S.f.status === k}">${label}</button>`;
   let body;
@@ -449,8 +447,8 @@ function viewHome(items){
   return `
   <section class="hero">
     <div class="eyebrow">Analisi statistica storica · ${STRATEGY}</div>
-    <h1>Le stagionalità ordinate per affidabilità statistica.</h1>
-    <p>Uno score da 1 a 100 basato su 10 e 20 anni di dati storici, con il backtest del ${STRATEGY} per ogni finestra. Un'operatività swing con regole fisse: pochi minuti al giorno, nessuna decisione presa d'impulso.</p>
+    <h1>Le stagionalità ordinate per classe statistica.</h1>
+    <p>Tre classi, S, A+ e A, basate su 10 e 20 anni di dati storici, con il backtest del ${STRATEGY} per ogni finestra. Un'operatività swing con regole fisse: pochi minuti al giorno, nessuna decisione presa d'impulso.</p>
     <div class="tiles">${tile("TUTTI","Totale")}${tile("ATTIVA","Attive")}${tile("IN ARRIVO","In arrivo")}${tile("TERMINATA","Terminate")}</div>
   </section>
   ${stateNotice()}
@@ -471,9 +469,9 @@ function viewHome(items){
 function card(it){
   const w10 = it.bt.wr10;
   return `<a class="card" href="/dettaglio/${encodeURIComponent(it.id)}">
-    <div class="card-top">${ring(it.score, 56)}
+    <div class="card-top">${clsBig(it.classe, 56)}
       <div class="card-id">
-        <div class="asset-line"><span class="asset">${esc(it.nome || it.asset)}</span>${it.nome ? `<span class="tk">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${flagTag(it)}</div>
+        <div class="asset-line"><span class="asset">${esc(it.nome || it.asset)}</span>${it.nome ? `<span class="tk">${esc(it.asset)}</span>` : ""}${flagTag(it)}</div>
         <div class="sub">${dirHtml(it.dir)}<span>·</span><span>${dShort(it.start)} → ${dShort(it.end)}</span></div>
       </div>${stTag(it.status)}</div>
     <div class="kpis">
@@ -506,7 +504,7 @@ function viewDetail(items, id){
   <div class="dhead"><h1>${esc(it.nome || it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${stTag(it.status)}${flagTag(it)}</div>
 
   <section class="keys" aria-label="Dati principali">
-    <div class="key key-score">${ring(it.score, 132)}<div class="s" style="text-align:center">Affidabilità statistica</div></div>
+    <div class="key key-score">${clsBig(it.classe, 132)}<div class="s" style="text-align:center">Classe statistica</div></div>
     <div class="key ${L ? "dir-long" : "dir-short"}"><div class="k">Direzione</div>
       <div class="big-dir ${L ? "c-long" : "c-short"}">${L ? "▲" : "▼"} ${it.dir}</div>
       <div class="s">Stagionalità ${L ? "rialzista" : "ribassista"}</div></div>
@@ -570,7 +568,7 @@ function viewDetail(items, id){
 }
 
 function viewCalendar(items){
-  const list = items.slice().filter(i => i.start).sort((a, b) => a.start - b.start || (b.score ?? 0) - (a.score ?? 0));
+  const list = items.slice().filter(i => i.start).sort((a, b) => a.start - b.start || clsRank(b.classe) - clsRank(a.classe));
   const groups = [];
   list.forEach(i => {
     const k = i.start.getFullYear() * 12 + i.start.getMonth();
@@ -584,16 +582,16 @@ function viewCalendar(items){
   else body = groups.map(g => `<section class="month"><div class="month-h">${g.label} <span class="tag cls-Ap">${g.items.length} ${g.items.length === 1 ? "stagionalità" : "stagionalità"}</span></div>
     ${g.items.map(i => `<a class="row" href="/dettaglio/${encodeURIComponent(i.id)}">
       <div class="date"><small>${MESI[i.start.getMonth()]}</small><b>${String(i.start.getDate()).padStart(2,"0")}</b></div>
-      <div class="mid"><div class="asset-line"><span class="asset" style="font-size:16px">${esc(i.nome || i.asset)}</span>${i.nome ? `<span class="tk">${esc(i.asset)}</span>` : ""}${clsTag(i.classe)}${flagTag(i)}</div>
+      <div class="mid"><div class="asset-line"><span class="asset" style="font-size:16px">${esc(i.nome || i.asset)}</span>${i.nome ? `<span class="tk">${esc(i.asset)}</span>` : ""}${flagTag(i)}</div>
         <div class="meta">${dirHtml(i.dir)}<span>${dShort(i.start)} → ${dShort(i.end)}</span>${stTag(i.status)}<span>AVG <b class="${i.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(i.avg)}</b></span></div></div>
-      <div class="sc">Score<b>${i.score ?? "—"}</b></div></a>`).join("")}</section>`).join("");
+      <div class="sc">Classe<b>${i.classe ? esc(i.classe) : "—"}</b></div></a>`).join("")}</section>`).join("");
   return `<div class="cal-hero"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><rect width="44" height="44" rx="11" fill="var(--navy)"/><rect x="11" y="13" width="22" height="19" rx="3" fill="none" stroke="var(--blue-2)" stroke-width="2"/><path d="M11 19h22M17 10v6M27 10v6" stroke="var(--blue-2)" stroke-width="2" stroke-linecap="round"/></svg>
     <div><h1>Calendario stagionalità</h1><p>Tutte le finestre ordinate per data di inizio.</p></div></div>
     ${stateNotice()}${body}${disclaimer()}`;
 }
 
 function disclaimer(){
-  return `<footer class="disc"><b>Disclaimer statistico</b><p>Score, win rate e backtest sono indici calcolati su dati storici. Non sono una probabilità futura, una previsione o un consiglio finanziario, e questa pagina non fornisce segnali di trading.</p></footer>`;
+  return `<footer class="disc"><b>Disclaimer statistico</b><p>Classe, win rate e backtest sono indici calcolati su dati storici. Non sono una probabilità futura, una previsione o un consiglio finanziario, e questa pagina non fornisce segnali di trading.</p></footer>`;
 }
 
 /* ---------- router ---------- */
