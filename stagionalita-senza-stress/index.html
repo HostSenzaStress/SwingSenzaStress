@@ -130,6 +130,16 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .cbig.cls-S{background:var(--navy);color:#fff}
 .cbig.cls-Ap{background:var(--blue-soft);color:var(--blue)}
 .cbig.cls-A{background:var(--muted);color:var(--fg-2)}
+.cwrap{position:relative;display:inline-flex;flex-direction:column;align-items:center;gap:8px;cursor:help;flex:none}
+.ctip{position:absolute;left:0;top:calc(100% + 8px);z-index:30;width:280px;max-width:calc(100vw - 48px);background:var(--surface);color:var(--fg-2);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 10px 30px #0000002e;padding:12px 14px;font-size:12.5px;line-height:1.45;text-align:left;font-weight:400;letter-spacing:0;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .12s,transform .12s,visibility .12s;pointer-events:none}
+.cwrap:hover .ctip,.cwrap:focus .ctip,.cwrap:focus-within .ctip{opacity:1;visibility:visible;transform:none}
+.ctip b{display:block;color:var(--fg);font-size:13px;margin-bottom:6px}
+.ctip ul{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:3px}
+.ctip li{color:var(--fg-3)}
+.ctip li.on{color:var(--fg);font-weight:700}
+.ctip p{margin:0;font-size:11.5px;color:var(--fg-3);border-top:1px solid var(--border);padding-top:7px}
+.card:hover{position:relative;z-index:5}
+@media (prefers-reduced-motion:reduce){.ctip{transition:none}}
 
 /* States */
 .notice{border:1px solid var(--border);background:var(--muted);border-radius:var(--radius);padding:16px 18px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
@@ -390,6 +400,11 @@ function flagTag(it){
 const dirHtml = (d, big) => `<span class="dir ${d === "LONG" ? "long" : "short"}">${d === "LONG" ? "▲" : "▼"} ${d}${big ? "" : ""}</span>`;
 const CLS_RANK = {"S": 3, "A+": 2, "A": 1};
 const clsRank = c => CLS_RANK[c] || 0;
+const CLS_INFO = [["S","win rate dal 70% in su"],["A+","win rate dal 60% al 70% circa"],["A","win rate dal 50% al 60% circa"]];
+function clsTip(c){
+  return `<span class="ctip" role="tooltip"><b>Cosa indica la classe</b><ul>${CLS_INFO.map(([k, t]) => `<li class="${k === c ? "on" : ""}">Classe ${k} · ${t}</li>`).join("")}</ul><p>Sono solo statistiche basate sul passato: non sono una garanzia di risultati futuri.</p></span>`;
+}
+const clsHover = (inner, c) => `<span class="cwrap" tabindex="0" aria-label="Classe ${c ? esc(c) : "n.d."}: spiegazione">${inner}${clsTip(c)}</span>`;
 function clsBig(c, size){
   const k = c === "S" ? "cls-S" : c === "A+" ? "cls-Ap" : "cls-A";
   return `<div class="cbig ${k}" style="width:${size}px;height:${size}px;font-size:${Math.round(size * (c && c.length > 1 ? .36 : .44))}px" role="img" aria-label="Classe ${c ? esc(c) : "n.d."}">${c ? esc(c) : "—"}${size > 100 ? "<small>CLASSE</small>" : ""}</div>`;
@@ -469,7 +484,7 @@ function viewHome(items){
 function card(it){
   const w10 = it.bt.wr10;
   return `<a class="card" href="/dettaglio/${encodeURIComponent(it.id)}">
-    <div class="card-top">${clsBig(it.classe, 56)}
+    <div class="card-top">${clsHover(clsBig(it.classe, 56), it.classe)}
       <div class="card-id">
         <div class="asset-line"><span class="asset">${esc(it.nome || it.asset)}</span>${it.nome ? `<span class="tk">${esc(it.asset)}</span>` : ""}${flagTag(it)}</div>
         <div class="sub">${dirHtml(it.dir)}<span>·</span><span>${dShort(it.start)} → ${dShort(it.end)}</span></div>
@@ -504,7 +519,7 @@ function viewDetail(items, id){
   <div class="dhead"><h1>${esc(it.nome || it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${stTag(it.status)}${flagTag(it)}</div>
 
   <section class="keys" aria-label="Dati principali">
-    <div class="key key-score">${clsBig(it.classe, 132)}<div class="s" style="text-align:center">Classe statistica</div></div>
+    <div class="key key-score">${clsHover(clsBig(it.classe, 132) + `<div class="s" style="text-align:center">Classe statistica <span aria-hidden="true">ⓘ</span></div>`, it.classe)}</div>
     <div class="key ${L ? "dir-long" : "dir-short"}"><div class="k">Direzione</div>
       <div class="big-dir ${L ? "c-long" : "c-short"}">${L ? "▲" : "▼"} ${it.dir}</div>
       <div class="s">Stagionalità ${L ? "rialzista" : "ribassista"}</div></div>
