@@ -61,6 +61,7 @@ button,input,select{font:inherit;color:inherit}
 .nav a{padding:7px 14px;border-radius:999px;font-weight:500;font-size:14px;color:var(--fg-2)}
 .nav a:hover{background:var(--muted)}
 .nav a[aria-current="page"]{background:var(--blue-2);color:#fff}
+@media (max-width:420px){.nav{gap:2px}.nav a{padding:6px 8px;font-size:13px}}
 
 .wrap{max-width:1120px;margin:0 auto;padding-inline:16px;padding-block:24px 48px;display:flex;flex-direction:column;gap:24px}
 
@@ -227,6 +228,45 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .disc{border-top:1px solid var(--border);padding-top:18px;font-size:13px;color:var(--fg-3)}
 .disc b{color:var(--fg-2)}
 .disc p{margin:4px 0 0;max-width:90ch}
+
+/* Academy: lettore a sinistra, elenco lezioni a destra (impilati su mobile) */
+.ac-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
+.ac-tiles .tile{cursor:default}
+.ac-tiles .tile:hover{border-color:#ffffff1f}
+@media (max-width:640px){.ac-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.ac-tiles .tile .v{font-size:22px}}
+.ac{display:grid;grid-template-columns:minmax(0,1.75fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.ac{grid-template-columns:1fr}}
+.ac-main{display:flex;flex-direction:column;gap:16px;min-width:0}
+.player{position:relative;aspect-ratio:16/9;border-radius:calc(var(--radius)*1.6);overflow:hidden;background:var(--navy);border:1px solid var(--border)}
+.player iframe,.player video{position:absolute;inset:0;width:100%;height:100%;border:0;background:#000}
+.player-ph{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--hero-sub);text-align:center;padding:20px;background:radial-gradient(120% 90% at 50% 0%,var(--navy-3),var(--navy))}
+.player-ph .ring{width:68px;height:68px;border-radius:50%;border:2px solid #ffffff33;display:flex;align-items:center;justify-content:center}
+.player-ph b{color:var(--hero-fg);font-size:16px}
+.player-ph span{font-size:13px}
+.ac-meta{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px;color:var(--fg-3)}
+.ac-main h1{margin:0;font-size:clamp(24px,3.4vw,32px);font-weight:800;font-stretch:110%;letter-spacing:-.02em;line-height:1.12}
+.ac-main .lead{margin:0;color:var(--fg-2);max-width:68ch}
+.learn{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.learn li{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--fg-2)}
+.learn li::before{content:"";flex:none;width:7px;height:7px;border-radius:50%;background:var(--blue-2);margin-top:8px}
+.ac-nav{display:flex;justify-content:space-between;gap:10px;border-top:1px solid var(--border);padding-top:14px}
+.ac-nav a{display:flex;flex-direction:column;gap:2px;max-width:48%;font-size:14px;font-weight:600;color:var(--blue)}
+.ac-nav a small{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);font-weight:600}
+.ac-nav a.nx{text-align:right;margin-left:auto}
+.ac-side{border:1px solid var(--border);border-radius:calc(var(--radius)*1.6);background:var(--surface);overflow:hidden;position:sticky;top:76px}
+@media (max-width:900px){.ac-side{position:static}}
+.ac-side-h{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ac-side-h h2{margin:0;font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--heading);font-weight:700}
+.ac-side-h span{font-size:12px;color:var(--fg-3)}
+.lessons{list-style:none;margin:0;padding:6px;display:flex;flex-direction:column;gap:2px}
+.lesson{display:flex;gap:12px;align-items:center;padding:10px;border-radius:var(--radius)}
+.lesson:hover{background:var(--muted)}
+.lesson[aria-current="page"]{background:var(--blue-soft)}
+.lesson .n{flex:none;width:28px;height:28px;border-radius:50%;background:var(--muted);color:var(--fg-2);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.lesson[aria-current="page"] .n{background:var(--blue-2);color:#fff}
+.lesson .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.lesson .t b{font-size:14px;font-weight:600;line-height:1.3}
+.lesson .t span{font-size:12px;color:var(--fg-3)}
 </style>
 </head>
 <body>
@@ -246,6 +286,7 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
     <nav class="nav" aria-label="Sezioni">
       <a href="/" id="nav-home">Home</a>
       <a href="/calendario" id="nav-cal">Calendario</a>
+      <a href="/academy" id="nav-ac">Academy</a>
     </nav>
   </div>
 </header>
@@ -610,6 +651,82 @@ function viewCalendar(items){
     ${stateNotice()}${body}${disclaimer()}`;
 }
 
+/* ---------- Academy ----------
+   Per pubblicare un video incolla il link in "video" (YouTube, Vimeo o un file .mp4) e, se vuoi, la durata (es. "12 min").
+   Puoi cambiare titoli, testi e ordine, o aggiungere lezioni copiando un blocco. "slug" è l'indirizzo: /academy/<slug>. */
+const ACADEMY = [
+  {slug:"come-funziona-il-sito", titolo:"Come funziona il sito", video:"", durata:"",
+   desc:"Un giro completo del sito: dove trovare le stagionalità attive, come leggere una scheda e come usare il calendario.",
+   punti:["Home, filtri per stato e per classe","La scheda di dettaglio di una stagionalità","Il calendario delle finestre","Cosa significano le classi S, A+ e A"]},
+  {slug:"le-stagionalita", titolo:"Le stagionalità e come sfruttarle", video:"", durata:"",
+   desc:"Cos'è una stagionalità, perché alcuni mercati tendono a ripetere lo stesso comportamento nello stesso periodo dell'anno e come trasformarla in un trade swing.",
+   punti:["Cos'è una finestra stagionale","Perché una stagionalità può ripetersi","Entrata e uscita a data fissa","Quando una stagionalità non è affidabile"]},
+  {slug:"le-statistiche", titolo:"Leggere le statistiche", video:"", durata:"",
+   desc:"I numeri dietro ogni stagionalità: cosa misurano, come confrontarli e quali guardare per primi.",
+   punti:["Win rate su più periodi","AVG, AVG opposto e AVG Ratio","Drawdown medio e massimo","Anni anomali e perché si escludono"]},
+  {slug:"backtest-metodo-c2", titolo:"Il backtest del Metodo C2", video:"", durata:"",
+   desc:"Come viene verificata ogni finestra con il backtest e come leggerne i risultati.",
+   punti:["Le regole del Metodo C2","Leggere win rate e rendimento del backtest","Confrontare backtest e statistica stagionale"]},
+  {slug:"gestione-del-rischio", titolo:"Gestione del rischio", video:"", durata:"",
+   desc:"Quanto rischiare per ogni trade, come dimensionare la posizione e come gestire più stagionalità aperte insieme.",
+   punti:["Rischio per trade e size della posizione","Stop loss e uscita a data","Stagionalità sovrapposte e correlate","Proteggere il capitale nelle serie negative"]},
+  {slug:"analisi-montecarlo", titolo:"Analisi Montecarlo", video:"", durata:"",
+   desc:"Simulare migliaia di sequenze di trade per capire cosa aspettarsi da una strategia, nel bene e nel male.",
+   punti:["Cos'è una simulazione Montecarlo","Drawdown possibili e serie di perdite","Usare i risultati per scegliere il rischio"]},
+  {slug:"strumenti-utilizzati", titolo:"Strumenti utilizzati", video:"", durata:"",
+   desc:"Gli strumenti usati per trovare, verificare e registrare le stagionalità.",
+   punti:["ELP Financials per le curve stagionali","TradingView per grafici e backtest","Il Diario Trading"]},
+];
+function videoEmbed(url){
+  const u = String(url || "").trim();
+  if (!u) return "";
+  let m = u.match(/(?:youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);
+  if (m) return `<iframe src="https://www.youtube-nocookie.com/embed/${m[1]}?rel=0" title="Video della lezione" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen loading="lazy"></iframe>`;
+  m = u.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (m) return `<iframe src="https://player.vimeo.com/video/${m[1]}" title="Video della lezione" allow="fullscreen; picture-in-picture" allowfullscreen loading="lazy"></iframe>`;
+  if (/\.(mp4|webm|m4v)(\?|$)/i.test(u)) return `<video controls preload="metadata" playsinline src="${esc(u)}"></video>`;
+  return "";
+}
+function viewAcademy(slug){
+  const idx = Math.max(0, slug ? ACADEMY.findIndex(l => l.slug === slug) : 0);
+  if (slug && ACADEMY.findIndex(l => l.slug === slug) < 0)
+    return `<a class="back" href="/academy">← Torna all'Academy</a><p class="empty">Questa lezione non esiste.</p>`;
+  const l = ACADEMY[idx], prev = ACADEMY[idx - 1], next = ACADEMY[idx + 1];
+  const pubblicate = ACADEMY.filter(x => videoEmbed(x.video)).length;
+  const player = videoEmbed(l.video) || `<div class="player-ph">
+      <div class="ring"><svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z" fill="var(--blue-2)"/></svg></div>
+      <b>Video in arrivo</b><span>Questa lezione sarà pubblicata a breve.</span></div>`;
+  const stato = x => videoEmbed(x.video) ? (x.durata ? esc(x.durata) : "Disponibile") : "In arrivo";
+  return `<section class="hero">
+      <div style="display:grid;gap:10px"><span class="eyebrow">Academy</span>
+        <h1>Impara il metodo, una lezione alla volta</h1>
+        <p>Un mini corso video per usare il sito, capire le stagionalità e le statistiche, gestire il rischio e conoscere gli strumenti dietro ogni analisi.</p></div>
+      <div class="tiles ac-tiles">
+        <div class="tile"><div class="k">Lezioni</div><div class="v">${ACADEMY.length}</div></div>
+        <div class="tile"><div class="k">Pubblicate</div><div class="v">${pubblicate}</div></div>
+        <div class="tile"><div class="k">Livello</div><div class="v" style="font-size:20px;padding-top:5px">Base</div></div>
+      </div></section>
+    <div class="ac">
+      <article class="ac-main">
+        <div class="player">${player}</div>
+        <div class="ac-meta"><span class="tag cls-Ap">Lezione ${idx + 1} di ${ACADEMY.length}</span>${videoEmbed(l.video) ? (l.durata ? `<span>${esc(l.durata)}</span>` : "") : `<span class="tag st-TERMINATA">In arrivo</span>`}</div>
+        <h1>${esc(l.titolo)}</h1>
+        <p class="lead">${esc(l.desc)}</p>
+        ${l.punti && l.punti.length ? `<section class="sec"><div class="sec-h"><h2>Cosa imparerai</h2></div><ul class="learn">${l.punti.map(p => `<li>${esc(p)}</li>`).join("")}</ul></section>` : ""}
+        <nav class="ac-nav" aria-label="Lezioni">
+          ${prev ? `<a href="/academy/${prev.slug}"><small>← Precedente</small>${esc(prev.titolo)}</a>` : ""}
+          ${next ? `<a class="nx" href="/academy/${next.slug}"><small>Successiva →</small>${esc(next.titolo)}</a>` : ""}
+        </nav>
+      </article>
+      <aside class="ac-side">
+        <div class="ac-side-h"><h2>Programma</h2><span>${pubblicate}/${ACADEMY.length} pubblicate</span></div>
+        <ol class="lessons">${ACADEMY.map((x, i) => `<li><a class="lesson" href="/academy/${x.slug}" aria-current="${i === idx ? "page" : "false"}">
+          <span class="n">${i + 1}</span><span class="t"><b>${esc(x.titolo)}</b><span>${stato(x)}</span></span></a></li>`).join("")}</ol>
+      </aside>
+    </div>
+    <footer class="disc"><b>Contenuti didattici</b><p>Le lezioni dell'Academy hanno scopo formativo. Non sono consulenza finanziaria né segnali di trading: statistiche e backtest descrivono il passato e non garantiscono risultati futuri.</p></footer>`;
+}
+
 function disclaimer(){
   return `<footer class="disc"><b>Disclaimer statistico</b><p>Classe, win rate e backtest sono indici calcolati su dati storici. Non sono una probabilità futura, una previsione o un consiglio finanziario, e questa pagina non fornisce segnali di trading.</p></footer>`;
 }
@@ -656,7 +773,9 @@ function route(){
   const app = document.getElementById("app");
   let html, nav = "home";
   const m = path.match(/^\/dettaglio\/([^/]+)$/);
+  const ac = path.match(/^\/academy(?:\/([^/]+))?$/);
   if (m){ html = viewDetail(items, decodeURIComponent(m[1])); nav = ""; }
+  else if (ac){ html = viewAcademy(ac[1] ? decodeURIComponent(ac[1]) : ""); nav = "ac"; }
   else if (path === "/calendario"){ html = viewCalendar(items); nav = "cal"; }
   else html = viewHome(items);
   const keepFocus = document.activeElement && document.activeElement.id === "q";
@@ -666,8 +785,9 @@ function route(){
   mountTV();
   document.getElementById("nav-home").setAttribute("aria-current", nav === "home" ? "page" : "false");
   document.getElementById("nav-cal").setAttribute("aria-current", nav === "cal" ? "page" : "false");
+  document.getElementById("nav-ac").setAttribute("aria-current", nav === "ac" ? "page" : "false");
   const it = m ? items.find(i => i.id === decodeURIComponent(m[1])) : null;
-  document.title = it ? (it.nome || it.asset) + " ·Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
+  document.title = it ? (it.nome || it.asset) + " · Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : nav === "ac" ? "Academy · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
   if (keepFocus){ const q = document.getElementById("q"); if (q){ q.focus(); try{ q.setSelectionRange(pos, pos); }catch(e){} } }
 }
 function go(href){
