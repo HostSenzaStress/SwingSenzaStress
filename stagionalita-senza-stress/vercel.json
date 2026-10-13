@@ -2,6 +2,8 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/calendario", "destination": "/index.html" },
-    { "source": "/dettaglio/:id", "destination": "/index.html" }
+    { "source": "/dettaglio/:id", "destination": "/index.html" },
+    { "source": "/academy", "destination": "/index.html" },
+    { "source": "/academy/:slug", "destination": "/index.html" }
   ]
 }
