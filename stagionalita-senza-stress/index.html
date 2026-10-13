@@ -108,12 +108,29 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
 .card{display:flex;flex-direction:column;gap:14px;background:var(--surface);border:1px solid var(--border);border-radius:calc(var(--radius)*1.4);padding:16px;transition:border-color .15s, transform .15s}
 .card:hover{border-color:var(--blue-2);transform:translateY(-1px)}
+/* Stagionalità ATTIVA: cornice blu e sfondo azzurro chiaro (stesso blu del riquadro selezionato in alto) */
+.card.is-active{border-color:var(--blue-2);background:var(--blue-soft)}
+.card.is-active .kpi,.card.is-active .bar{background:var(--surface)}
+.card.is-active .card-foot{border-top-color:var(--blue-2)}
+.period.is-active{border-color:var(--blue-2);background:var(--blue-soft)}
+.period.is-active .bar{background:var(--surface)}
+/* Esito R del trade chiuso */
+.res-pos{background:var(--long-soft);color:var(--long);border-color:var(--long-line)}
+.res-neg{background:var(--short-soft);color:var(--short);border-color:var(--short-line)}
+.res-be{background:var(--muted);color:var(--fg-2);border-color:var(--border)}
+.res-pos-txt{color:var(--long)} .res-neg-txt{color:var(--short)} .res-be-txt{color:var(--fg)}
+.res{display:flex;justify-content:space-between;align-items:center;gap:10px;border:1px solid;border-radius:var(--radius);padding:9px 12px}
+.res .k{font-size:12px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;opacity:.85}
+.res .v{font-size:20px;font-weight:800;letter-spacing:-.01em}
+.res.big{padding:16px 20px;border-radius:calc(var(--radius)*1.6)}
+.res.big .v{font-size:clamp(28px,4vw,38px)}
 .card-top{display:flex;gap:12px;align-items:flex-start}
 .card-id{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .asset-line{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 .asset{font-size:18px;font-weight:700;font-stretch:108%}
 .tk{font-size:13px;font-weight:500;color:var(--fg-3)}
 .sub{font-size:13px;color:var(--fg-3);display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.sub span{white-space:nowrap}
 .kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .kpi{background:var(--muted);border-radius:var(--radius);padding:8px 10px}
 .kpi .k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3);font-weight:600}
@@ -229,6 +246,33 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .disc b{color:var(--fg-2)}
 .disc p{margin:4px 0 0;max-width:90ch}
 
+/* Home: presentazione e percorso Academy → Radar → Calendario */
+.home-hero h1{max-width:18ch}
+.cta-row{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.cta{display:inline-flex;align-items:center;border-radius:999px;padding:10px 20px;font-weight:600;font-size:15px;border:1px solid #ffffff40;color:var(--hero-fg)}
+.cta:hover{border-color:var(--blue-2)}
+.cta.primary{background:var(--blue-2);border-color:var(--blue-2);color:#fff}
+.cta.primary:hover{background:var(--blue)}
+.flow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;counter-reset:f}
+@media (max-width:820px){.flow{grid-template-columns:1fr}}
+.flow-step{display:flex;flex-direction:column;gap:10px;border:1px solid var(--border);border-radius:calc(var(--radius)*1.6);padding:20px;background:var(--surface);transition:border-color .15s,transform .15s}
+.flow-step:hover{border-color:var(--blue-2);transform:translateY(-1px)}
+.flow-top{display:flex;justify-content:space-between;align-items:center}
+.flow-n{font-size:13px;font-weight:700;letter-spacing:.1em;color:var(--blue)}
+.flow-n::before{content:"PASSO "}
+.flow-ico{width:46px;height:46px;border-radius:12px;background:var(--blue-soft);color:var(--blue);display:flex;align-items:center;justify-content:center}
+.flow-step h3{margin:0;font-size:20px;font-weight:700;font-stretch:108%;letter-spacing:-.01em}
+.flow-step p{margin:0;color:var(--fg-2);font-size:14px;flex:1}
+.flow-step .go,.sec-h .go{color:var(--blue);font-weight:600;font-size:14px}
+.feats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media (max-width:900px){.feats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:480px){.feats{grid-template-columns:1fr}}
+.feat{border-left:3px solid var(--blue-2);background:var(--muted);border-radius:0 var(--radius) var(--radius) 0;padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.feat b{font-size:14px}
+.feat span{font-size:13px;color:var(--fg-2)}
+@media (prefers-reduced-motion:reduce){.flow-step{transition:none}}
+@media (max-width:480px){.brand>span{display:none}}
+
 /* Academy: lettore a sinistra, elenco lezioni a destra (impilati su mobile) */
 .ac-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}
 .ac-tiles .tile{cursor:default}
@@ -285,6 +329,7 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
     </a>
     <nav class="nav" aria-label="Sezioni">
       <a href="/" id="nav-home">Home</a>
+      <a href="/radar" id="nav-radar">Radar</a>
       <a href="/calendario" id="nav-cal">Calendario</a>
       <a href="/academy" id="nav-ac">Academy</a>
     </nav>
@@ -406,6 +451,9 @@ function build(){
       if (today > end){ status = "TERMINATA"; progress = 100; }
       else if (today >= start){ status = "ATTIVA"; progress = Math.max(0, Math.min(100, (today - start) / (end - start) * 100)); }
     }
+    // Colonna "Esito R" compilata = trade chiuso (TP, SL o chiusura anticipata): la stagionalità diventa TERMINATA
+    const esitoRTxt = String(g("Esito R") || "").trim();
+    if (esitoRTxt){ status = "TERMINATA"; progress = 100; }
     const years = yearCols.map(c => ({y: c.y, r: num(r[c.i])}));
     const cal = calMap[id] || {c1:false, trig:false, chiuso:false};
     const esito = String(g("ESITO (WIN/LOSS/BE)") || "").trim();
@@ -419,7 +467,7 @@ function build(){
       classe: String(g("Classe") || "").trim(),
       trigDate: String(g("Data Trigger") || "").trim(), entry: String(g("Entry") || "").trim(),
       tp: String(g("TP") || "").trim(), sl: String(g("SL") || "").trim(), rr: num(g("R:R")),
-      esitoR: num(g("Esito R")), chiusura: String(g("Data Chiusura") || "").trim(), esito,
+      esitoR: num(esitoRTxt), esitoRTxt, chiusura: String(g("Data Chiusura") || "").trim(), esito,
       durata: num(g("Durata Stagionalità")),
       note: String(g("Note") || "").trim(),
       bt: {
@@ -428,7 +476,7 @@ function build(){
         prio: String(g("PRIORITÀ BACKTEST (da score)") || "").trim(),
         years, wr5: wrWindow(years, 5), wr10: wrWindow(years, 10)
       },
-      flags: {c1: cal.c1, trig: cal.trig || !!String(g("Entry")||"").trim(), chiuso: cal.chiuso || !!esito}
+      flags: {c1: cal.c1, trig: cal.trig || !!String(g("Entry")||"").trim(), chiuso: cal.chiuso || !!esito || !!esitoRTxt}
     });
   });
   return out;
@@ -437,7 +485,17 @@ function build(){
 /* ---------- small components ---------- */
 const clsTag = c => c ? `<span class="tag ${c === "S" ? "cls-S" : c === "A+" ? "cls-Ap" : "cls-A"}" title="Classe statistica">${esc(c === "S" || c.startsWith("A") ? "Classe " + c : c)}</span>` : "";
 const stTag = s => `<span class="tag ${s === "ATTIVA" ? "st-ATTIVA" : s === "TERMINATA" ? "st-TERMINATA" : "st-ARRIVO"}">${s}</span>`;
+/* Esito R: verde se positivo, rosso se negativo, neutro se zero o testo */
+const esitoCls = it => it.esitoR == null || it.esitoR === 0 ? "res-be" : it.esitoR > 0 ? "res-pos" : "res-neg";
+const esitoTxt = it => it.esitoR != null ? fmtR(it.esitoR) : esc(it.esitoRTxt);
+const stTagIt = (it, short) => it.status === "TERMINATA" && it.esitoRTxt
+  ? `<span class="tag ${esitoCls(it)}">TERMINATA${short ? "" : " · " + esitoTxt(it)}</span>` : stTag(it.status);
+function esitoBox(it, big){
+  if (!it.esitoRTxt) return "";
+  return `<div class="res ${esitoCls(it)} ${big ? "big" : ""}"><span class="k">${big ? "Trade chiuso" + (it.chiusura ? " il " + esc(it.chiusura) : "") + " · Esito" : "Esito del trade"}</span><span class="v">${esitoTxt(it)}</span></div>`;
+}
 function flagTag(it){
+  if (it.status === "TERMINATA" && it.esitoRTxt) return "";
   if (it.flags.chiuso) return `<span class="tag st-TERMINATA">TRADE CHIUSO</span>`;
   if (it.flags.trig) return `<span class="tag chip-warn">IN TRADE</span>`;
   if (it.flags.c1) return `<span class="tag chip-warn">1ª CANDELA</span>`;
@@ -490,7 +548,67 @@ function stateNotice(){
 }
 function loadingGrid(){ return `<div class="grid">${'<div class="skel"></div>'.repeat(6)}</div>`; }
 
+/* ---------- Home: cos'è il sito e il percorso da seguire ---------- */
 function viewHome(items){
+  const ready = !!S.diario;
+  const cnt = {ATTIVA: 0, "IN ARRIVO": 0};
+  items.forEach(i => { if (i.status in cnt) cnt[i.status]++; });
+  const v = n => ready ? n : "–";
+  const active = items.filter(i => i.status === "ATTIVA").sort((a, b) => clsRank(b.classe) - clsRank(a.classe) || (a.start - b.start));
+  const ico = {
+    ac: `<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9l9-5 9 5-9 5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M7 11.5V16c0 1.2 2.2 2.5 5 2.5s5-1.3 5-2.5v-4.5" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>`,
+    radar: `<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="12" r="4.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 12l6-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/></svg>`,
+    cal: `<svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5" width="17" height="15" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M3.5 10h17M8 3v4M16 3v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`
+  };
+  const stepCard = (n, k, title, txt, href, cta) => `<a class="flow-step" href="${href}">
+      <div class="flow-top"><span class="flow-n">${n}</span><span class="flow-ico">${ico[k]}</span></div>
+      <h3>${title}</h3><p>${txt}</p><span class="go">${cta} →</span></a>`;
+  const feat = (t, d) => `<div class="feat"><b>${t}</b><span>${d}</span></div>`;
+  return `
+  <section class="hero home-hero">
+    <div style="display:grid;gap:12px">
+      <div class="eyebrow">Swing meccanico stagionale</div>
+      <h1>Le stagionalità dei mercati, senza stress.</h1>
+      <p>Un metodo swing a regole fisse basato sulle stagionalità: poche finestre selezionate con filtri statistici, ognuna con la sua classe di affidabilità e il backtest degli ultimi 10 anni. Pochi minuti al giorno, nessuna decisione presa d'impulso.</p>
+      <div class="cta-row"><a class="cta primary" href="/academy">Inizia dall'Academy</a><a class="cta" href="/radar">Apri il Radar</a></div>
+    </div>
+    <div class="tiles ac-tiles">
+      <button class="tile" data-st="ATTIVA"><div class="k">Attive ora</div><div class="v">${v(cnt.ATTIVA)}</div></button>
+      <button class="tile" data-st="IN ARRIVO"><div class="k">In arrivo</div><div class="v">${v(cnt["IN ARRIVO"])}</div></button>
+      <button class="tile" data-st="TUTTI"><div class="k">Nel Radar</div><div class="v">${v(items.length)}</div></button>
+    </div>
+  </section>
+  ${stateNotice()}
+
+  <section class="sec">
+    <div class="sec-h"><h2>Come funziona</h2><span class="hint">Tre passi, sempre nello stesso ordine</span></div>
+    <div class="flow">
+      ${stepCard(1, "ac", "Impara il metodo", "Parti dall'Academy: cosa sono le stagionalità, come sfruttarle a tuo vantaggio, come leggere statistiche e backtest, come gestire il rischio.", "/academy", "Vai all'Academy")}
+      ${stepCard(2, "radar", "Trova le migliori stagionalità", "Nel Radar trovi solo le finestre che superano filtri statistici specifici e offrono un vantaggio storico, ognuna con la sua classe di affidabilità e il backtest degli ultimi 10 anni.", "/radar", "Apri il Radar")}
+      ${stepCard(3, "cal", "Monitora le prossime", "Il calendario mette in fila tutte le finestre per data di inizio, così sai in anticipo quali stagionalità stanno per partire.", "/calendario", "Vai al Calendario")}
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><h2>Cosa trovi per ogni stagionalità</h2></div>
+    <div class="feats">
+      ${feat("Classe di affidabilità", "S, A+ o A, in base alla solidità statistica della finestra su 10 e 20 anni di dati.")}
+      ${feat("Backtest di 10 anni", "Il risultato del " + STRATEGY + " anno per anno, in R, con win rate, expectancy e profit factor.")}
+      ${feat("Regole fisse", "Ingresso dopo due candele daily contrarie, stop a −1R e target a +2R, uscita a fine finestra.")}
+      ${feat("Stato aggiornato", "Attiva, in arrivo o terminata, con l'esito in R di ogni trade chiuso.")}
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="sec-h"><h2>Attive adesso</h2><a class="hint go" href="/radar">Vedi tutte nel Radar →</a></div>
+    ${!ready ? (S.error ? "" : loadingGrid()) : active.length
+      ? `<div class="grid">${active.slice(0, 3).map(card).join("")}</div>`
+      : `<p class="empty">Nessuna stagionalità attiva in questo momento. Guarda il calendario per le prossime.</p>`}
+  </section>
+  ${disclaimer()}`;
+}
+
+function viewRadar(items){
   const cnt = {TUTTI: items.length, ATTIVA: 0, "IN ARRIVO": 0, TERMINATA: 0};
   items.forEach(i => cnt[i.status]++);
   const q = S.f.q.trim().toLowerCase();
@@ -507,7 +625,7 @@ function viewHome(items){
   else body = `<div class="grid">${list.map(card).join("")}</div>`;
   return `
   <section class="hero">
-    <div class="eyebrow">Analisi statistica storica · ${STRATEGY}</div>
+    <div class="eyebrow">Radar · Analisi statistica storica</div>
     <h1>Le stagionalità ordinate per classe statistica.</h1>
     <p>Tre classi, S, A+ e A, basate su 10 e 20 anni di dati storici, con il backtest del ${STRATEGY} per ogni finestra. Un'operatività swing con regole fisse: pochi minuti al giorno, nessuna decisione presa d'impulso.</p>
     <div class="tiles">${tile("TUTTI","Totale")}${tile("ATTIVA","Attive")}${tile("IN ARRIVO","In arrivo")}${tile("TERMINATA","Terminate")}</div>
@@ -529,26 +647,26 @@ function viewHome(items){
 
 function card(it){
   const w10 = it.bt.wr10;
-  return `<a class="card" href="/dettaglio/${encodeURIComponent(it.id)}">
+  return `<a class="card ${it.status === "ATTIVA" ? "is-active" : ""}" href="/dettaglio/${encodeURIComponent(it.id)}">
     <div class="card-top">${clsHover(clsBig(it.classe, 56), it.classe)}
       <div class="card-id">
         <div class="asset-line"><span class="asset">${esc(it.nome || it.asset)}</span>${it.nome ? `<span class="tk">${esc(it.asset)}</span>` : ""}${flagTag(it)}</div>
         <div class="sub">${dirHtml(it.dir)}<span>·</span><span>${dShort(it.start)} → ${dShort(it.end)}</span></div>
-      </div>${stTag(it.status)}</div>
+      </div>${stTagIt(it, true)}</div>
     <div class="kpis">
       <div class="kpi"><div class="k">AVG medio</div><div class="v ${it.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(it.avg)}</div></div>
       <div class="kpi"><div class="k">WR 10Y</div><div class="v">${fmtPct(it.wr10,0)}</div></div>
       <div class="kpi"><div class="k">WR 20Y</div><div class="v">${fmtPct(it.wr20,0)}</div></div>
     </div>
-    <div><div class="prog-row"><span>Avanzamento periodo</span><span>${Math.round(it.progress)}%</span></div><div class="bar"><i style="width:${it.progress}%"></i></div></div>
+    ${it.esitoRTxt ? esitoBox(it) : `<div><div class="prog-row"><span>Avanzamento periodo</span><span>${Math.round(it.progress)}%</span></div><div class="bar"><i style="width:${it.progress}%"></i></div></div>`}
     <div class="card-foot"><span>${STRATEGY} · WR 10 anni <b>${w10 && w10.pct != null ? fmtPct(w10.pct,0) : "—"}</b></span><span class="go">Dettagli →</span></div>
   </a>`;
 }
 
 function viewDetail(items, id){
-  if (!S.diario) return `<a class="back" href="/">← Torna alla lista</a>${stateNotice()}${S.error ? "" : '<div class="skel" style="height:320px"></div>'}`;
+  if (!S.diario) return `<a class="back" href="/radar">← Torna al Radar</a>${stateNotice()}${S.error ? "" : '<div class="skel" style="height:320px"></div>'}`;
   const it = items.find(i => i.id === id);
-  if (!it) return `<a class="back" href="/">← Torna alla lista</a><p class="empty">Questa stagionalità non è più presente nel diario.</p>`;
+  if (!it) return `<a class="back" href="/radar">← Torna al Radar</a><p class="empty">Questa stagionalità non è più presente nel diario.</p>`;
   const L = it.dir === "LONG";
   const contr = L ? "ribassista" : "rialzista";
   const days = it.start && it.end ? Math.round((it.end - it.start) / 864e5) : null;
@@ -560,9 +678,10 @@ function viewDetail(items, id){
     const step = (on, title, txt) => `<div class="step ${on ? "on" : ""}"><span class="dot" aria-hidden="true">${on ? "✓" : ""}</span><div><b>${title}</b><span>${txt}</span></div></div>`;
   const hasLevels = it.entry || it.tp || it.sl;
   return `
-  <a class="back" href="/">← Torna alla lista</a>
+  <a class="back" href="/radar">← Torna al Radar</a>
   ${stateNotice()}
-  <div class="dhead"><h1>${esc(it.nome || it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${stTag(it.status)}${flagTag(it)}</div>
+  <div class="dhead"><h1>${esc(it.nome || it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${stTagIt(it)}${flagTag(it)}</div>
+  ${esitoBox(it, true)}
 
   <section class="keys" aria-label="Dati principali">
     <div class="key key-score">${clsHover(clsBig(it.classe, 132) + `<div class="s" style="text-align:center">Classe statistica <span aria-hidden="true">ⓘ</span></div>`, it.classe)}</div>
@@ -574,7 +693,7 @@ function viewDetail(items, id){
       <div class="s">Movimento medio ${L ? "al rialzo" : "al ribasso"} nella finestra</div></div>
   </section>
 
-  <div class="period">
+  <div class="period ${it.status === "ATTIVA" ? "is-active" : ""}">
     <div class="prow"><span><b>${dLong(it.start)}</b> → <b>${dLong(it.end)}</b>${days != null ? ` · ${days} giorni` : ""}</span><span>Avanzamento ${Math.round(it.progress)}%</span></div>
     <div class="bar"><i style="width:${it.progress}%"></i></div>
   </div>
@@ -615,7 +734,7 @@ function viewDetail(items, id){
     <div class="steps">
       ${step(it.flags.c1, "1ª candela opposta", it.flags.c1 ? `Si è formata la prima candela daily ${contr}.` : `In attesa della prima candela daily ${contr}.`)}
       ${step(it.flags.trig, "Trigger confermato", it.flags.trig ? `Seconda candela ${contr} chiusa: ingresso eseguito${it.trigDate ? " il " + esc(it.trigDate) : ""}.` : "In attesa della conferma del trigger.")}
-      ${step(it.flags.chiuso, "Chiuso", it.flags.chiuso ? `Trade chiuso${it.chiusura ? " il " + esc(it.chiusura) : ""}${it.esito ? " · " + esc(it.esito) : ""}${it.esitoR != null ? " · " + fmtR(it.esitoR) : ""}.` : "Trade non ancora chiuso.")}
+      ${step(it.flags.chiuso, "Chiuso", it.flags.chiuso ? `Trade chiuso${it.chiusura ? " il " + esc(it.chiusura) : ""}${it.esito ? " · " + esc(it.esito) : ""}${it.esitoRTxt ? ` · Esito <b class="${esitoCls(it)}-txt">${esitoTxt(it)}</b>` : ""}.` : "Trade non ancora chiuso.")}
     </div>
     ${hasLevels ? `<div class="levels">${mini("Entry", esc(it.entry || "—"))}${mini("Take profit", esc(it.tp || "—"))}${mini("Stop loss", esc(it.sl || "—"))}${mini("R:R", fmtN(it.rr))}</div>` : ""}
   </section>
@@ -644,7 +763,7 @@ function viewCalendar(items){
     ${g.items.map(i => `<a class="row" href="/dettaglio/${encodeURIComponent(i.id)}">
       <div class="date"><small>${MESI[i.start.getMonth()]}</small><b>${String(i.start.getDate()).padStart(2,"0")}</b></div>
       <div class="mid"><div class="asset-line"><span class="asset" style="font-size:16px">${esc(i.nome || i.asset)}</span>${i.nome ? `<span class="tk">${esc(i.asset)}</span>` : ""}${flagTag(i)}</div>
-        <div class="meta">${dirHtml(i.dir)}<span>${dShort(i.start)} → ${dShort(i.end)}</span>${stTag(i.status)}<span>AVG <b class="${i.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(i.avg)}</b></span></div></div>
+        <div class="meta">${dirHtml(i.dir)}<span>${dShort(i.start)} → ${dShort(i.end)}</span>${stTagIt(i)}<span>AVG <b class="${i.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(i.avg)}</b></span></div></div>
       <div class="sc">Classe<b>${i.classe ? esc(i.classe) : "—"}</b></div></a>`).join("")}</section>`).join("");
   return `<div class="cal-hero"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><rect width="44" height="44" rx="11" fill="var(--navy)"/><rect x="11" y="13" width="22" height="19" rx="3" fill="none" stroke="var(--blue-2)" stroke-width="2"/><path d="M11 19h22M17 10v6M27 10v6" stroke="var(--blue-2)" stroke-width="2" stroke-linecap="round"/></svg>
     <div><h1>Calendario stagionalità</h1><p>Tutte le finestre ordinate per data di inizio.</p></div></div>
@@ -776,6 +895,7 @@ function route(){
   const ac = path.match(/^\/academy(?:\/([^/]+))?$/);
   if (m){ html = viewDetail(items, decodeURIComponent(m[1])); nav = ""; }
   else if (ac){ html = viewAcademy(ac[1] ? decodeURIComponent(ac[1]) : ""); nav = "ac"; }
+  else if (path === "/radar"){ html = viewRadar(items); nav = "radar"; }
   else if (path === "/calendario"){ html = viewCalendar(items); nav = "cal"; }
   else html = viewHome(items);
   const keepFocus = document.activeElement && document.activeElement.id === "q";
@@ -784,10 +904,11 @@ function route(){
   app.innerHTML = html;
   mountTV();
   document.getElementById("nav-home").setAttribute("aria-current", nav === "home" ? "page" : "false");
+  document.getElementById("nav-radar").setAttribute("aria-current", nav === "radar" ? "page" : "false");
   document.getElementById("nav-cal").setAttribute("aria-current", nav === "cal" ? "page" : "false");
   document.getElementById("nav-ac").setAttribute("aria-current", nav === "ac" ? "page" : "false");
   const it = m ? items.find(i => i.id === decodeURIComponent(m[1])) : null;
-  document.title = it ? (it.nome || it.asset) + " · Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : nav === "ac" ? "Academy · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
+  document.title = it ? (it.nome || it.asset) + " · Stagionalità Senza Stress" : nav === "cal" ? "Calendario · Stagionalità Senza Stress" : nav === "ac" ? "Academy · Stagionalità Senza Stress" : nav === "radar" ? "Radar · Stagionalità Senza Stress" : "Stagionalità Senza Stress";
   if (keepFocus){ const q = document.getElementById("q"); if (q){ q.focus(); try{ q.setSelectionRange(pos, pos); }catch(e){} } }
 }
 function go(href){
@@ -800,10 +921,10 @@ window.addEventListener("popstate", route);
 function saveF(){ try { localStorage.setItem("sss-filters-v2", JSON.stringify({status: S.f.status, classe: S.f.classe})); } catch(e) {} }
 document.addEventListener("click", e => {
   const st = e.target.closest("[data-st]");
-  if (st){ S.f.status = st.dataset.st; saveF(); go("/"); return; }
+  if (st){ S.f.status = st.dataset.st; saveF(); go("/radar"); return; }
   if (e.target.closest("#refresh")){ load(true); return; }
   const a = e.target.closest("a[href^='/']");
-  if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0 && a.target !== "_blank"){ e.preventDefault(); const href = a.getAttribute("href"); if (href === "/" && !a.classList.contains("back")) S.f.status = "ATTIVA"; go(href); }
+  if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0 && a.target !== "_blank"){ e.preventDefault(); const href = a.getAttribute("href"); if (href === "/radar" && !a.classList.contains("back")) S.f.status = "ATTIVA"; go(href); }
 });
 document.addEventListener("input", e => { if (e.target.id === "q"){ S.f.q = e.target.value; route(); } });
 document.addEventListener("change", e => { if (e.target.id === "classe"){ S.f.classe = e.target.value; saveF(); route(); } });
