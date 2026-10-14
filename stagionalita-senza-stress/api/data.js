@@ -5,7 +5,7 @@
 const SHEET_ID = process.env.SHEET_ID || "1ZkUysiJOcvuRUwkqa5lu0CTaN2IRMVtjOA2b9gvoey4";
 const DIARIO_GID = process.env.DIARIO_GID || "121658962";   // tab "Diario Trade"
 const CAL_GID = process.env.CAL_GID || "2001";              // tab "Calendario 2026"
-const DIARIO_RANGE = process.env.DIARIO_RANGE || "A3:BJ400"; // riga 3 = intestazioni (BJ = PUBBLICA SUL SITO)
+const DIARIO_RANGE = process.env.DIARIO_RANGE || "A3:BK400"; // riga 3 = intestazioni (BJ = PUBBLICA SUL SITO, BK = TIPO ASSET)
 const CAL_RANGE = process.env.CAL_RANGE || "A2:O400";        // riga 2 = intestazioni
 
 function parseCSV(text) {
