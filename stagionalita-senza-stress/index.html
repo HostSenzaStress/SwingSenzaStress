@@ -379,6 +379,80 @@ const TV_SYMBOLS = {
 
   
 };
+
+  
+const FUTURES_MAP = {
+  "PLATINUM": "NYMEX:PL1!",
+  "PLUSD": "NYMEX:PL1!",
+  "PALLADIUM": "NYMEX:PA1!",
+  "PAUSD": "NYMEX:PA1!",
+  "HGUSD": "COMEX:HG1!",
+  "COPPER": "COMEX:HG1!",
+  "CLUSD": "NYMEX:CL1!",
+  "CRUDE OIL": "NYMEX:CL1!",
+  "NGUSD": "NYMEX:NG1!",
+  "NATURAL GAS": "NYMEX:NG1!",
+  "ZCUSX": "CBOT:ZC1!",
+  "CORN": "CBOT:ZC1!",
+  "ZSUSX": "CBOT:ZS1!",
+  "SOYBEAN": "CBOT:ZS1!",
+  "KEUSX": "CBOT:KE1!",
+  "ZWUSX": "CBOT:ZW1!",
+  "COCOA": "ICEUS:CC1!",
+  "CCUSX": "ICEUS:CC1!",
+  "SUGAR": "ICEUS:SB1!",
+  "SBUSX": "ICEUS:SB1!",
+  "COFFEE": "ICEUS:KC1!",
+  "KCUSX": "ICEUS:KC1!",
+  "CTUSX": "ICEUS:CT1!",
+  "OJUSX": "ICEUS:OJ1!"
+};
+
+
+  
+{FUTURES_MAP[String(asset || "").trim().toUpperCase()] && (
+  <div style={{
+    marginTop: "14px",
+    padding: "16px",
+    backgroundColor: "#FFF8E7",
+    border: "1px solid #F2D58A",
+    borderRadius: "10px",
+    fontSize: "13px",
+    lineHeight: "1.7",
+    color: "#664D03"
+  }}>
+    <strong>⚠️ Attenzione – CFD e Futures</strong>
+
+    <p style={{ margin: "6px 0 12px" }}>
+      Il grafico CFD potrebbe presentare differenze
+      rispetto al Futures originale, anche nelle
+      candele Daily e nei trigger della strategia.
+      Le analisi stagionali e i backtest sono basati
+      sui Futures. Verifica il grafico originale
+      prima di valutare un eventuale ingresso.
+    </p>
+
+    <a
+      href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(
+        FUTURES_MAP[String(asset || "").trim().toUpperCase()]
+      )}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      style={{
+        display: "inline-block",
+        padding: "9px 14px",
+        backgroundColor: "#203456",
+        color: "#FFFFFF",
+        textDecoration: "none",
+        borderRadius: "7px",
+        fontWeight: "600"
+      }}
+    >
+      Apri Futures originale su TradingView ↗
+    </a>
+  </div>
+)}
+
 function tvSymbol(asset){
   const a = String(asset || "").trim().toUpperCase();
   if (TV_SYMBOLS[a]) return TV_SYMBOLS[a];
