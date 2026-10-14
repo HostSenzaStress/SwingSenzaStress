@@ -91,6 +91,18 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .btn:hover{border-color:var(--blue)}
 .btn.primary{background:var(--blue-2);border-color:var(--blue-2);color:#fff}
 .updated{font-size:12px;color:var(--fg-3)}
+/* Filtri Radar */
+.btn.f-on{background:var(--navy);border-color:var(--navy);color:#fff}
+.btn .fcount{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--blue-2);color:#fff;font-size:11px}
+.fpanel{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px 16px;align-items:end}
+.fgrp{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fgrp>span{font-size:12px;font-weight:600;color:var(--fg-3);letter-spacing:.02em}
+.fgrp select.sel{width:100%}
+.fchips{display:flex;flex-wrap:wrap;gap:6px}
+.fcounter{font-size:13px;color:var(--fg-3);margin:2px 2px -4px}
+.fcounter b{color:var(--fg);font-weight:700}
+.factions{display:flex;justify-content:flex-end;align-items:end;grid-column:-2/-1}
+@media (max-width:640px){.fpanel{grid-template-columns:repeat(2,minmax(0,1fr));padding:14px}.factions{grid-column:1/-1;justify-content:stretch}.factions .btn{width:100%;justify-content:center}}
 
 /* Badges */
 .tag{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;letter-spacing:.02em;border:1px solid var(--border);white-space:nowrap}
@@ -426,9 +438,17 @@ const MESI_L = ["Gennaio","Febbraio","Marzo","Aprile","Maggio","Giugno","Luglio"
 const S = {
   diario: null, cal: null, loading: true, error: null, mcp: undefined,
   updatedAt: null,
-  f: {status: "ATTIVA", classe: "", q: ""}
+  f: {status: "ATTIVA", q: "", classi: [], dir: "", tipo: "", wrMin: "", expMin: "", entro: "", sort: "classe"},
+  fOpen: false
 };
-try { const saved = JSON.parse(localStorage.getItem("sss-filters-v2") || "null"); if (saved && saved.classe) S.f.classe = saved.classe; } catch(e) {}
+const F_DEF = {classi: [], dir: "", tipo: "", wrMin: "", expMin: "", entro: "", sort: "classe"};
+try {
+  const v3 = JSON.parse(localStorage.getItem("sss-filters-v3") || "null");
+  const v2 = v3 ? null : JSON.parse(localStorage.getItem("sss-filters-v2") || "null");
+  if (v3) Object.keys(F_DEF).forEach(k => { if (k in v3) S.f[k] = v3[k]; });
+  else if (v2 && v2.classe) S.f.classi = [v2.classe];
+  if (!Array.isArray(S.f.classi)) S.f.classi = [];
+} catch(e) {}
 
 /* ---------- parsing ---------- */
 const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
@@ -513,6 +533,7 @@ function build(){
       ddMed: num(g("DD Medio")), ddMin: num(g("DD Min")), ddMax: num(g("DD Max")),
       avgRatio: num(g("AVG Ratio")), vp: num(g("Rapporto V/P Medio")),
       classe: String(g("Classe") || "").trim(),
+      tipo: String(g("TIPO ASSET") || "").trim(),
       trigDate: String(g("Data Trigger") || "").trim(), entry: String(g("Entry") || "").trim(),
       tp: String(g("TP") || "").trim(), sl: String(g("SL") || "").trim(), rr: num(g("R:R")),
       esitoR: num(esitoRTxt), esitoRTxt, chiusura: String(g("Data Chiusura") || "").trim(), esito,
@@ -656,20 +677,59 @@ function viewHome(items){
   ${disclaimer()}`;
 }
 
+/* ---------- filtri del Radar ---------- */
+const TIPI = ["Azioni", "Indici", "Materie prime", "Criptovalute"];
+const nv = x => x == null || isNaN(x) ? -1e9 : x;
+const byStart = (a, b) => (a.start || 0) - (b.start || 0);
+const SORTS = {
+  classe: (a, b) => clsRank(b.classe) - clsRank(a.classe) || byStart(a, b),
+  inizio: (a, b) => byStart(a, b) || clsRank(b.classe) - clsRank(a.classe),
+  wr: (a, b) => nv(b.bt.wr) - nv(a.bt.wr) || clsRank(b.classe) - clsRank(a.classe),
+  exp: (a, b) => nv(b.bt.exp) - nv(a.bt.exp) || clsRank(b.classe) - clsRank(a.classe),
+  score: (a, b) => nv(b.bt.score) - nv(a.bt.score) || clsRank(b.classe) - clsRank(a.classe)
+};
+const nFiltri = () => ["dir", "tipo", "wrMin", "expMin", "entro"].filter(k => S.f[k]).length + (S.f.classi.length ? 1 : 0);
+function filtra(items){
+  const f = S.f, q = f.q.trim().toLowerCase();
+  const today = new Date(); today.setHours(0,0,0,0);
+  return items.filter(i =>
+      (f.status === "TUTTI" || i.status === f.status) &&
+      (!f.classi.length || f.classi.includes(i.classe)) &&
+      (!f.dir || i.dir === f.dir) &&
+      (!f.tipo || i.tipo === f.tipo) &&
+      (!f.wrMin || (i.bt.wr != null && i.bt.wr >= +f.wrMin)) &&
+      (!f.expMin || (i.bt.exp != null && (f.expMin === "0" ? i.bt.exp > 0 : i.bt.exp >= +f.expMin))) &&
+      (!f.entro || (i.start && i.start >= today && (i.start - today) / 864e5 <= +f.entro)) &&
+      (!q || (i.asset + " " + i.nome).toLowerCase().includes(q)))
+    .sort(SORTS[f.sort] || SORTS.classe);
+}
+function filterPanel(items){
+  const f = S.f;
+  const opt = (v, label, cur) => `<option value="${v}" ${String(cur) === String(v) ? "selected" : ""}>${label}</option>`;
+  const sel = (key, label, opts) => `<label class="fgrp"><span>${label}</span><select class="sel" data-f="${key}">${opts.map(([v, l]) => opt(v, l, f[key])).join("")}</select></label>`;
+  const tipi = TIPI.filter(t => items.some(i => i.tipo === t)).concat([...new Set(items.map(i => i.tipo))].filter(t => t && !TIPI.includes(t)));
+  return `<div class="fpanel" id="fpanel">
+    <div class="fgrp"><span>Classe</span><div class="fchips">${["S","A+","A"].map(c => `<button type="button" class="pill-btn" data-cls="${c}" aria-pressed="${f.classi.includes(c)}">${c}</button>`).join("")}</div></div>
+    ${sel("dir", "Direzione", [["", "Tutte"], ["LONG", "Long"], ["SHORT", "Short"]])}
+    ${sel("tipo", "Tipo di asset", [["", "Tutti"]].concat(tipi.map(t => [t, t])))}
+    ${sel("wrMin", "Win rate backtest", [["", "Qualsiasi"], ["50", "≥ 50%"], ["60", "≥ 60%"], ["70", "≥ 70%"], ["80", "≥ 80%"]])}
+    ${sel("expMin", "Expectancy backtest", [["", "Qualsiasi"], ["0", "Positiva (> 0R)"], ["0.5", "≥ 0,5R"], ["1", "≥ 1R"]])}
+    ${sel("entro", "Inizio entro", [["", "Qualsiasi"], ["7", "7 giorni"], ["30", "30 giorni"], ["90", "90 giorni"]])}
+    ${sel("sort", "Ordina per", [["classe", "Classe"], ["inizio", "Data di inizio"], ["wr", "Win rate backtest"], ["exp", "Expectancy"], ["score", "Score backtest"]])}
+    <div class="factions"><button type="button" class="btn" id="freset">Azzera filtri</button></div>
+  </div>`;
+}
+
 function viewRadar(items){
   const cnt = {TUTTI: items.length, ATTIVA: 0, "IN ARRIVO": 0, TERMINATA: 0};
   items.forEach(i => cnt[i.status]++);
-  const q = S.f.q.trim().toLowerCase();
-  const list = items.filter(i =>
-      (S.f.status === "TUTTI" || i.status === S.f.status) &&
-      (!S.f.classe || i.classe === S.f.classe) &&
-      (!q || (i.asset + " " + i.nome).toLowerCase().includes(q)))
-    .sort((a, b) => clsRank(b.classe) - clsRank(a.classe) || (a.start - b.start));
+  const list = filtra(items);
+  const nf = nFiltri();
   const tile = (k, label) => `<button class="tile" data-st="${k}" aria-pressed="${S.f.status === k}"><div class="k">${label}</div><div class="v">${S.loading && !S.diario ? "–" : cnt[k]}</div></button>`;
   const pill = (k, label) => `<button class="pill-btn" data-st="${k}" aria-pressed="${S.f.status === k}">${label}</button>`;
   let body;
   if (!S.diario) body = S.error ? "" : loadingGrid();
-  else if (!list.length) body = `<p class="empty">Nessuna stagionalità corrisponde ai filtri.</p>`;
+  else if (!list.length) body = `<p class="empty">Nessuna stagionalità corrisponde ai filtri.${nf || S.f.q ? ` <button type="button" class="btn" id="freset">Azzera filtri</button>` : ""}</p>`;
   else body = `<div class="grid">${list.map(card).join("")}</div>`;
   return `
   <section class="hero">
@@ -683,12 +743,12 @@ function viewRadar(items){
     <label class="search"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7" fill="none" stroke="var(--fg-3)" stroke-width="2"/><path d="M20 20l-4-4" stroke="var(--fg-3)" stroke-width="2" stroke-linecap="round"/></svg>
       <input id="q" type="search" placeholder="Cerca asset (es. AAPL, Gold, Corn…)" value="${esc(S.f.q)}" aria-label="Cerca asset"></label>
     <div class="pills">${pill("TUTTI","Tutti")}${pill("IN ARRIVO","In arrivo")}${pill("ATTIVA","Attive")}${pill("TERMINATA","Terminate")}</div>
-    <select class="sel" id="classe" aria-label="Filtra per classe">
-      <option value="">Tutte le classi</option>${["S","A+","A"].map(c => `<option value="${c}" ${S.f.classe === c ? "selected" : ""}>Classe ${c}</option>`).join("")}
-    </select>
+    <button class="btn ${nf ? "f-on" : ""}" id="ftoggle" type="button" aria-expanded="${S.fOpen}" aria-controls="fpanel">⚙ Filtri${nf ? ` <span class="fcount">${nf}</span>` : ""}</button>
     <button class="btn" id="refresh" type="button">↻ Aggiorna</button>
     ${S.updatedAt ? `<span class="updated">Dati del ${new Date(S.updatedAt).toLocaleString("it-IT",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})}</span>` : ""}
   </div>
+  ${S.fOpen ? filterPanel(items) : ""}
+  ${S.diario ? `<div class="fcounter" aria-live="polite"><b>${list.length}</b> stagionalità su ${items.length}</div>` : ""}
   ${body}
   ${disclaimer()}`;
 }
@@ -978,16 +1038,27 @@ function go(href){
 }
 window.addEventListener("popstate", route);
 
-function saveF(){ try { localStorage.setItem("sss-filters-v2", JSON.stringify({status: S.f.status, classe: S.f.classe})); } catch(e) {} }
+function saveF(){ try { const o = {}; Object.keys(F_DEF).forEach(k => o[k] = S.f[k]); localStorage.setItem("sss-filters-v3", JSON.stringify(o)); } catch(e) {} }
 document.addEventListener("click", e => {
   const st = e.target.closest("[data-st]");
   if (st){ S.f.status = st.dataset.st; saveF(); go("/radar"); return; }
   if (e.target.closest("#refresh")){ load(true); return; }
+  if (e.target.closest("#ftoggle")){ S.fOpen = !S.fOpen; route(); return; }
+  const cls = e.target.closest("[data-cls]");
+  if (cls){ const c = cls.dataset.cls; S.f.classi = S.f.classi.includes(c) ? S.f.classi.filter(x => x !== c) : S.f.classi.concat(c); saveF(); route(); return; }
+  if (e.target.closest("#freset")){ Object.keys(F_DEF).forEach(k => S.f[k] = Array.isArray(F_DEF[k]) ? [] : F_DEF[k]); S.f.q = ""; saveF(); route(); return; }
   const a = e.target.closest("a[href^='/']");
   if (a && !e.metaKey && !e.ctrlKey && !e.shiftKey && e.button === 0 && a.target !== "_blank"){ e.preventDefault(); const href = a.getAttribute("href"); if (href === "/radar" && !a.classList.contains("back")) S.f.status = "ATTIVA"; go(href); }
 });
 document.addEventListener("input", e => { if (e.target.id === "q"){ S.f.q = e.target.value; route(); } });
-document.addEventListener("change", e => { if (e.target.id === "classe"){ S.f.classe = e.target.value; saveF(); route(); } });
+document.addEventListener("change", e => {
+  const k = e.target.dataset && e.target.dataset.f;
+  if (!k) return;
+  S.f[k] = e.target.value;
+  // "Inizio entro" riguarda le finestre non ancora partite: passa allo stato "In arrivo"
+  if (k === "entro" && S.f.entro && (S.f.status === "ATTIVA" || S.f.status === "TERMINATA")) S.f.status = "IN ARRIVO";
+  saveF(); route();
+});
 
 /* ---------- data: /api/data legge il Diario Trade e il Calendario dal foglio ---------- */
 let busy = false;
