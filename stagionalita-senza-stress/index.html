@@ -410,49 +410,6 @@ const FUTURES_MAP = {
 
 
   
-{FUTURES_MAP[String(asset || "").trim().toUpperCase()] && (
-  <div style={{
-    marginTop: "14px",
-    padding: "16px",
-    backgroundColor: "#FFF8E7",
-    border: "1px solid #F2D58A",
-    borderRadius: "10px",
-    fontSize: "13px",
-    lineHeight: "1.7",
-    color: "#664D03"
-  }}>
-    <strong>⚠️ Attenzione – CFD e Futures</strong>
-
-    <p style={{ margin: "6px 0 12px" }}>
-      Il grafico CFD potrebbe presentare differenze
-      rispetto al Futures originale, anche nelle
-      candele Daily e nei trigger della strategia.
-      Le analisi stagionali e i backtest sono basati
-      sui Futures. Verifica il grafico originale
-      prima di valutare un eventuale ingresso.
-    </p>
-
-    <a
-      href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(
-        FUTURES_MAP[String(asset || "").trim().toUpperCase()]
-      )}`}
-      target="_blank"
-      rel="noopener noreferrer"
-      style={{
-        display: "inline-block",
-        padding: "9px 14px",
-        backgroundColor: "#203456",
-        color: "#FFFFFF",
-        textDecoration: "none",
-        borderRadius: "7px",
-        fontWeight: "600"
-      }}
-    >
-      Apri Futures originale su TradingView ↗
-    </a>
-  </div>
-)}
-
 function tvSymbol(asset){
   const a = String(asset || "").trim().toUpperCase();
   if (TV_SYMBOLS[a]) return TV_SYMBOLS[a];
@@ -834,6 +791,18 @@ function viewDetail(items, id){
     <div class="sec-h"><h2>Grafico · ${esc(it.asset)}</h2><span class="tag cls-Ap">Timeframe daily</span></div>
     <div class="tv-slot" id="tv-slot" data-symbol="${esc(tvSymbol(it.asset))}"></div>
     <p class="note">Grafico fornito da TradingView. Se il simbolo non viene riconosciuto, cercalo con la barra di ricerca del grafico.</p>
+    ${(() => {
+      const assetKey = String(it.asset || "").trim().toUpperCase();
+      const future = FUTURES_MAP[assetKey];
+      if (!future || tvSymbol(it.asset) === future) return "";
+      const url = "https://www.tradingview.com/chart/?symbol=" + encodeURIComponent(future);
+      return `
+        <div class="futures-warning" style="padding:16px;background:#FFF8E7;border:1px solid #F2D58A;border-radius:10px;color:#664D03;font-size:13px;line-height:1.7">
+          <strong>⚠️ Attenzione – CFD e Futures</strong>
+          <p style="margin:6px 0 12px">Il grafico visualizzato utilizza un CFD, che può differire dal future originale per prezzi, orari e candele Daily. Queste differenze possono influenzare i trigger della strategia C2.<br><strong>Le analisi stagionali e i backtest sono basati sui futures.</strong> Verifica il future originale su TradingView.</p>
+          <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:9px 14px;background:#203456;color:#fff;text-decoration:none;border-radius:7px;font-weight:600">Apri futures ${esc(future)} su TradingView ↗</a>
+        </div>`;
+    })()}
   </section>
   ${disclaimer()}`;
 }
