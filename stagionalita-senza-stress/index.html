@@ -573,9 +573,9 @@ function flagTag(it){
 const dirHtml = (d, big) => `<span class="dir ${d === "LONG" ? "long" : "short"}">${d === "LONG" ? "▲" : "▼"} ${d}${big ? "" : ""}</span>`;
 const CLS_RANK = {"S": 3, "A+": 2, "A": 1};
 const clsRank = c => CLS_RANK[c] || 0;
-const CLS_INFO = [["S","win rate dal 70% in su"],["A+","win rate dal 60% al 70% circa"],["A","win rate dal 50% al 60% circa"]];
+const CLS_INFO = [["S","affidabilità statistica da 80 in su"],["A+","affidabilità statistica da 60 a 79"],["A","affidabilità statistica da 40 a 59"]];
 function clsTip(c){
-  return `<span class="ctip" role="tooltip"><b>Cosa indica la classe</b><ul>${CLS_INFO.map(([k, t]) => `<li class="${k === c ? "on" : ""}">Classe ${k} · ${t}</li>`).join("")}</ul><p>Sono solo statistiche basate sul passato: non sono una garanzia di risultati futuri.</p></span>`;
+  return `<span class="ctip" role="tooltip"><b>Cosa indica la classe</b><ul>${CLS_INFO.map(([k, t]) => `<li class="${k === c ? "on" : ""}">Classe ${k} · ${t}</li>`).join("")}</ul><p>L'affidabilità va da 40 a 95 e si basa su win rate e rendimento rispetto al drawdown della stagionalità negli ultimi 10 e 20 anni. Sono solo statistiche basate sul passato: non sono una garanzia di risultati futuri.</p></span>`;
 }
 const clsHover = (inner, c) => `<span class="cwrap" tabindex="0" aria-label="Classe ${c ? esc(c) : "n.d."}: spiegazione">${inner}${clsTip(c)}</span>`;
 function clsBig(c, size){
