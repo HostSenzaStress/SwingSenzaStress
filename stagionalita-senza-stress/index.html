@@ -866,8 +866,9 @@ function viewDetail(items, id){
       <span><i style="background:#c4c9d2"></i>Prima della finestra</span>
       <span><i style="background:#16a34a"></i>Rialzista</span><span><i style="background:#dc2626"></i>Ribassista</span>
       <span>⚠️ 1ª candela opposta</span><span><i style="background:#2563eb"></i>C2 · ingresso</span>
-      <span><i style="background:rgba(22,163,74,.35)"></i>Take profit</span><span><i style="background:rgba(220,38,38,.35)"></i>Stop loss</span>
+      <span><i style="background:rgba(22,163,74,.35)"></i>Take profit</span><span><i style="background:rgba(220,38,38,.35)"></i>Stop loss</span><span>🏁 Chiusura del trade</span>
     </div>
+    <p class="note" id="ch-nota" hidden></p>
     <p class="note">Candele daily dei futures, gli stessi dati usati per trigger ed esiti (fonte Yahoo Finance, possono essere ritardate di qualche minuto).</p>
     ${(() => {
       const future = FUTURES_MAP[String(it.asset || "").trim().toUpperCase()] || tvSymbol(it.asset);
@@ -985,7 +986,7 @@ function disclaimer(){
    candele grigie prima della finestra (tranne la D-1), verdi/rosse dentro, C2 blu,
    ⚠️ sulla 1ª candela opposta, freccia ENTRY sulla C2 e box Risk/Reward (TP verde, SL rosso). */
 const LWC_URL = "https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js";
-let lwcPromise = null, chNode = null, chKey = null, chChart = null, chResize = null;
+let lwcPromise = null, chNode = null, chKey = null, chChart = null, chNota = "";
 const candleCache = {};
 function isDark(){
   const t = document.documentElement.getAttribute("data-theme");
@@ -1004,7 +1005,6 @@ function loadLWC(){
   return lwcPromise;
 }
 const isoD = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-const isoTxt = s => { const d = pdate(s); return d ? isoD(d) : ""; };
 function addDays(iso, n){ const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return isoD(d); }
 
 /* Box rettangolare tra due date e due prezzi, disegnato dietro le candele */
@@ -1043,31 +1043,92 @@ async function fetchCandles(asset, from){
   return (candleCache[k] = j.candles);
 }
 
+/* Data del Diario in formato ISO; accetta anche "17/10" senza anno (anno dedotto dalla finestra). */
+function isoFin(s, inizio){
+  const m = String(s || "").match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+  if (!m) return "";
+  let a = m[3] ? (m[3].length === 2 ? "20" + m[3] : m[3]) : inizio.slice(0, 4);
+  const md = String(m[2]).padStart(2, "0") + "-" + String(m[1]).padStart(2, "0");
+  if (!m[3] && a + "-" + md < addDays(inizio, -15)) a = String(+a + 1);
+  return a + "-" + md;
+}
+
+/* Ricostruisce il trade con le regole C2 quando nel Diario mancano le date (trade registrati a mano):
+   C2 = due candele contrarie consecutive (la C1 può essere il giorno prima dell'inizio) con la C2 che estende
+   il minimo (LONG) / massimo (SHORT) della C1; uscita a TP, SL o fine finestra, coerente con l'Esito R. */
+function ricostruisciTrade(cs, inizio, fine, L, avg, esitoR, dC2noto){
+  const dentro = c => c.time >= inizio && c.time <= fine;
+  const opp = c => L ? c.close < c.open : c.close > c.open;
+  const primo = cs.findIndex(dentro);
+  if (primo < 0) return null;
+  let iE = dC2noto ? cs.findIndex(c => c.time === dC2noto) : -1;
+  if (iE < 0){
+    for (let i = primo; i < cs.length && dentro(cs[i]); i++){
+      const cur = cs[i], prev = cs[i - 1];
+      if (prev && (dentro(prev) || i === primo) && opp(prev) && opp(cur) && (L ? cur.low < prev.low : cur.high > prev.high)){ iE = i; break; }
+    }
+  }
+  if (iE < 0) return null;
+  const entry = cs[iE].close;
+  const tp = L ? entry * (1 + avg / 100) : entry * (1 - avg / 100);
+  const sl = L ? entry * (1 - avg / 200) : entry * (1 + avg / 200);
+  let iX = -1;
+  for (let j = iE + 1; j < cs.length && cs[j].time <= fine; j++){
+    const c = cs[j];
+    const hitSL = L ? c.low <= sl : c.high >= sl, hitTP = L ? c.high >= tp : c.low <= tp;
+    if (esitoR != null && esitoR >= 1.95 && hitTP){ iX = j; break; }
+    if (esitoR != null && esitoR <= -0.95 && hitSL){ iX = j; break; }
+    if (esitoR != null && Math.abs(esitoR) < 0.05 && c.low <= entry && c.high >= entry){ iX = j; break; } // breakeven
+    if (esitoR == null && (hitSL || hitTP)){ iX = j; break; }
+  }
+  if (iX < 0){ // chiusura a fine finestra
+    for (let j = cs.length - 1; j > iE; j--) if (cs[j].time <= fine){ iX = j; break; }
+  }
+  return {dC1: cs[iE - 1] ? cs[iE - 1].time : "", dC2: cs[iE].time, entry, chiusura: iX > iE ? cs[iX].time : ""};
+}
+
 function mountChart(it){
   const slot = document.getElementById("ch-slot");
   if (!slot || !it || !it.start || !it.end) return;
   const key = [it.id, it.c1Date, it.trigDate, it.entry, it.tp, it.sl, it.esitoRTxt, it.chiusura, isDark()].join("|");
-  if (chNode && chKey === key){ slot.innerHTML = ""; slot.appendChild(chNode); chChart && chChart.timeScale(); return; }
+  if (chNode && chKey === key){ slot.innerHTML = ""; slot.appendChild(chNode); mostraNota(chNota); return; }
   if (chChart){ try { chChart.remove(); } catch(e){} chChart = null; }
-  if (chResize){ chResize.disconnect(); chResize = null; }
-  chKey = key;
+  chKey = key; chNota = "";
   chNode = document.createElement("div");
   chNode.style.height = "100%";
-  const msg = document.getElementById("ch-msg");
   const inizio = isoD(it.start), fine = isoD(it.end);
   Promise.all([loadLWC(), fetchCandles(it.asset, addDays(inizio, -40))]).then(([LWC, raw]) => {
     if (chKey !== key) return;
     const s2 = document.getElementById("ch-slot");
     if (!s2) return;
     const L = it.dir === "LONG";
-    const chiusura = isoTxt(it.chiusura);
+    const avg = it.avg;
+    const chiuso = it.esitoRTxt !== "";
+    let dC1 = isoFin(it.c1Date, inizio), dC2 = isoFin(it.trigDate, inizio), chiusura = isoFin(it.chiusura, inizio);
+    let entryRic = null;
+    // Trade chiuso ma con date mancanti nel Diario: ricostruzione con le regole C2
+    if (chiuso && avg && (!dC2 || !chiusura)){
+      const tutte = raw.filter(c => c.time <= fine);
+      const rec = ricostruisciTrade(tutte, inizio, fine, L, avg, it.esitoR, dC2);
+      if (rec){
+        if (!dC2){ dC2 = rec.dC2; entryRic = rec.entry; if (!dC1) dC1 = rec.dC1; }
+        if (!chiusura) chiusura = rec.chiusura;
+        chNota = "Date del trade non presenti nel Diario: ingresso e chiusura sono ricostruiti con le regole del Metodo C2 e possono differire dal trade reale.";
+      }
+    }
+    // Date nel weekend o in giorni festivi: si usa l'ultima candela disponibile fino a quella data (max 4 giorni prima)
+    const aggancia = dt => {
+      if (!dt) return "";
+      let best = "";
+      raw.forEach(c => { if (c.time <= dt && c.time >= addDays(dt, -4)) best = c.time; });
+      return best;
+    };
+    dC1 = aggancia(dC1); dC2 = aggancia(dC2); chiusura = aggancia(chiusura);
     const limite = chiusura || fine;
-    // Candele fino alla chiusura del trade (o alla fine della finestra)
     const cs = raw.filter(c => c.time <= limite);
     if (cs.length < 2) throw new Error("Dati insufficienti per il grafico");
     const iPrima = cs.findIndex(c => c.time >= inizio);
     const iDm1 = iPrima > 0 ? iPrima - 1 : (iPrima < 0 ? cs.length - 1 : -1);
-    const dC1 = isoTxt(it.c1Date), dC2 = isoTxt(it.trigDate);
     const VERDE = "#16a34a", ROSSO = "#dc2626", BLU = "#2563eb", GRIGIO = isDark() ? "#4b5563" : "#c4c9d2";
     const data = cs.map((c, i) => {
       let col = c.close >= c.open ? VERDE : ROSSO;
@@ -1075,7 +1136,7 @@ function mountChart(it){
       if (c.time === dC2) col = BLU;
       return Object.assign({}, c, {color: col, wickColor: col, borderColor: col});
     });
-    // Giorni futuri fino alla fine della finestra (spazio vuoto a destra)
+    // Trade aperto o finestra in corso: giorni futuri fino alla fine della finestra
     let d = cs[cs.length - 1].time;
     for (let n = 0; n < 60 && d < fine && !chiusura; ){
       d = addDays(d, 1);
@@ -1097,25 +1158,21 @@ function mountChart(it){
       crosshair: {mode: 0}
     });
     chChart = chart;
-    const series = chart.addCandlestickSeries({priceLineVisible: false, lastValueVisible: true});
+    const series = chart.addCandlestickSeries({priceLineVisible: false, lastValueVisible: !chiusura});
     series.setData(data);
 
     const markers = [];
     if (dC1 && cs.some(c => c.time === dC1))
       markers.push({time: dC1, position: L ? "belowBar" : "aboveBar", color: "#f59e0b", shape: "circle", text: "⚠️ 1ª opposta"});
-    // Livelli del trade
-    const avg = it.avg;
     const cC2 = dC2 ? cs.find(c => c.time === dC2) : null;
     if (cC2){
       markers.push({time: dC2, position: L ? "belowBar" : "aboveBar", color: BLU, shape: L ? "arrowUp" : "arrowDown", text: "ENTRY"});
-      // Livelli dal Diario, con controllo di coerenza: "29.367" senza decimali è ambiguo (29367 o 29,367),
-      // quindi un valore lontano da quello atteso viene ricalcolato da Entry e AVG Medio
+      // Livelli dal Diario, con controllo di coerenza ("29.367" senza decimali è ambiguo)
       const vicino = (v, atteso, tol) => v && atteso && Math.abs(v / atteso - 1) <= tol ? v : atteso;
-      const entry = vicino(num(it.entry), cC2.close, 0.2);
+      const entry = entryRic || vicino(num(it.entry), cC2.close, 0.2);
       const tp = avg ? vicino(num(it.tp), L ? entry * (1 + avg / 100) : entry * (1 - avg / 100), 0.02) : num(it.tp);
       const sl = avg ? vicino(num(it.sl), L ? entry * (1 - avg / 200) : entry * (1 + avg / 200), 0.02) : num(it.sl);
       if (tp && sl){
-        // La scala verticale include sempre TP e SL, così il box Risk/Reward è visibile per intero
         series.applyOptions({autoscaleInfoProvider: orig => {
           const r = orig();
           if (!r || !r.priceRange) return r;
@@ -1132,19 +1189,38 @@ function mountChart(it){
           title: "SL " + (L ? "−" : "+") + (avg ? pctTxt(avg / 2) : "")});
         series.createPriceLine({price: entry, color: dark ? "#cbd5e1" : "#334155", lineWidth: 1, lineStyle: 0, axisLabelVisible: true,
           title: "Entry · R:R 1:2"});
+        // Chiusura del trade: bandierina con l'esito e linea del prezzo di uscita
+        if (chiuso && chiusura && cs.some(c => c.time === chiusura)){
+          const R = it.esitoR;
+          const tipo = R == null ? "Chiuso" : R >= 1.95 ? "TP" : R <= -0.95 ? "SL" : Math.abs(R) < 0.05 ? "BE" : "Chiusura";
+          const col = R == null || Math.abs(R) < 0.05 ? (dark ? "#d4d4d4" : "#475569") : R > 0 ? VERDE : ROSSO;
+          const rTxt = R == null ? "" : " " + (R > 0 ? "+" : R < 0 ? "−" : "") + Math.abs(R).toLocaleString("it-IT", {maximumFractionDigits: 2}) + "R";
+          const favore = R == null || R >= 0;
+          markers.push({time: chiusura, position: (L === favore) ? "aboveBar" : "belowBar", color: col, shape: "square", text: "🏁 " + tipo + rTxt});
+          if (R != null && avg){
+            const uscita = tipo === "TP" ? tp : tipo === "SL" ? sl : tipo === "BE" ? entry
+              : (L ? entry * (1 + R * avg / 200) : entry * (1 - R * avg / 200));
+            series.createPriceLine({price: uscita, color: col, lineWidth: 2, lineStyle: 1, axisLabelVisible: true, title: "Uscita " + tipo});
+          }
+        }
       }
     }
-    markers.sort((a, b) => a.time < b.time ? -1 : 1);
+    markers.sort((a, b) => a.time < b.time ? -1 : a.time > b.time ? 1 : 0);
     series.setMarkers(markers);
-    // Vista: da ~15 candele prima della finestra fino alla fine
     const iStart = Math.max(0, (iPrima < 0 ? cs.length : iPrima) - 15);
-    chart.timeScale().setVisibleLogicalRange({from: iStart - 0.5, to: data.length + 1});
+    // Trade chiuso: spazio a destra per l'etichetta di chiusura
+    chart.timeScale().setVisibleLogicalRange({from: iStart - 0.5, to: data.length + (chiusura ? 5 : 1)});
+    mostraNota(chNota);
   }).catch(err => {
     if (chKey !== key) return;
     const m = document.getElementById("ch-msg");
     if (m) m.textContent = "Grafico non disponibile al momento (" + err.message + ").";
     chNode = null; chKey = null;
   });
+}
+function mostraNota(t){
+  const n = document.getElementById("ch-nota");
+  if (n){ n.textContent = t || ""; n.hidden = !t; }
 }
 
 function route(){
