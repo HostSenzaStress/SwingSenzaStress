@@ -254,6 +254,12 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 
 .tv-slot{height:clamp(380px,62vh,620px);border:1px solid var(--border);border-radius:calc(var(--radius)*1.4);overflow:hidden;background:var(--surface)}
 .tv-slot>div{height:100%}
+.tv-slot{position:relative}
+.ch-msg{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:20px;color:var(--fg-2);font-size:14px}
+.ch-legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:13px;color:var(--fg-2)}
+.ch-legend span{display:inline-flex;align-items:center;gap:6px}
+.ch-legend i{display:inline-block;width:12px;height:12px;border-radius:3px}
+.ch-link{display:inline-block;margin-top:10px;font-size:13px;font-weight:600;color:var(--blue)}
 .disc{border-top:1px solid var(--border);padding-top:18px;font-size:13px;color:var(--fg-3)}
 .disc b{color:var(--fg-2)}
 .disc p{margin:4px 0 0;max-width:90ch}
@@ -417,7 +423,12 @@ const FUTURES_MAP = {
   "COFFEE": "ICEUS:KC1!",
   "KCUSX": "ICEUS:KC1!",
   "CTUSX": "ICEUS:CT1!",
-  "OJUSX": "ICEUS:OJ1!"
+  "OJUSX": "ICEUS:OJ1!",
+  "XAUUSD": "COMEX:GC1!", "GOLD": "COMEX:GC1!", "XAGUSD": "COMEX:SI1!", "SILVER": "COMEX:SI1!",
+  "ALIUSD": "COMEX:ALI1!", "RBUSD": "NYMEX:RB1!", "HOUSD": "NYMEX:HO1!", "BZUSD": "NYMEX:BB1!",
+  "GSPC": "CME_MINI:ES1!", "^GSPC": "CME_MINI:ES1!", "NDX": "CME_MINI:NQ1!", "^NDX": "CME_MINI:NQ1!",
+  "DJI": "CBOT_MINI:YM1!", "RUT": "CME_MINI:RTY1!", "N225": "CME:NKD1!",
+  "GDAXI": "XETR:DAX", "^GDAXI": "XETR:DAX", "STOXX50E": "TVC:SX5E", "SSMI": "SIX:SMI", "FTSE": "TVC:UKX", "FCHI": "EURONEXT:PX1"
 };
 
 
@@ -534,7 +545,8 @@ function build(){
       avgRatio: num(g("AVG Ratio")), vp: num(g("Rapporto V/P Medio")),
       classe: String(g("Classe") || "").trim(),
       tipo: String(g("TIPO ASSET") || "").trim(),
-      trigDate: String(g("Data Trigger") || "").trim(), entry: String(g("Entry") || "").trim(),
+      trigDate: String(g("Data Trigger") || "").trim(), c1Date: String(g("Data 1ª Candela") || "").trim(),
+      entry: String(g("Entry") || "").trim(),
       tp: String(g("TP") || "").trim(), sl: String(g("SL") || "").trim(), rr: num(g("R:R")),
       esitoR: num(esitoRTxt), esitoRTxt, chiusura: String(g("Data Chiusura") || "").trim(), esito,
       durata: num(g("Durata Stagionalità")),
@@ -849,19 +861,17 @@ function viewDetail(items, id){
 
   <section class="sec">
     <div class="sec-h"><h2>Grafico · ${esc(it.asset)}</h2><span class="tag cls-Ap">Timeframe daily</span></div>
-    <div class="tv-slot" id="tv-slot" data-symbol="${esc(tvSymbol(it.asset))}"></div>
-    <p class="note">Grafico fornito da TradingView. Se il simbolo non viene riconosciuto, cercalo con la barra di ricerca del grafico.</p>
+    <div class="tv-slot" id="ch-slot"><div class="ch-msg" id="ch-msg">Caricamento del grafico…</div></div>
+    <div class="ch-legend" aria-label="Legenda del grafico">
+      <span><i style="background:#c4c9d2"></i>Prima della finestra</span>
+      <span><i style="background:#16a34a"></i>Rialzista</span><span><i style="background:#dc2626"></i>Ribassista</span>
+      <span>⚠️ 1ª candela opposta</span><span><i style="background:#2563eb"></i>C2 · ingresso</span>
+      <span><i style="background:rgba(22,163,74,.35)"></i>Take profit</span><span><i style="background:rgba(220,38,38,.35)"></i>Stop loss</span>
+    </div>
+    <p class="note">Candele daily dei futures, gli stessi dati usati per trigger ed esiti (fonte Yahoo Finance, possono essere ritardate di qualche minuto).</p>
     ${(() => {
-      const assetKey = String(it.asset || "").trim().toUpperCase();
-      const future = FUTURES_MAP[assetKey];
-      if (!future || tvSymbol(it.asset) === future) return "";
-      const url = "https://www.tradingview.com/chart/?symbol=" + encodeURIComponent(future);
-      return `
-        <div class="futures-warning" style="padding:16px;background:#FFF8E7;border:1px solid #F2D58A;border-radius:10px;color:#664D03;font-size:13px;line-height:1.7">
-          <strong>⚠️ Attenzione – CFD e Futures</strong>
-          <p style="margin:6px 0 12px">Il grafico visualizzato utilizza un CFD, che può differire dal future originale per prezzi, orari e candele Daily. Queste differenze possono influenzare i trigger della strategia C2.<br><strong>Le analisi stagionali e i backtest sono basati sui futures.</strong> Verifica il future originale su TradingView.</p>
-          <a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:9px 14px;background:#203456;color:#fff;text-decoration:none;border-radius:7px;font-weight:600">Apri futures ${esc(future)} su TradingView ↗</a>
-        </div>`;
+      const future = FUTURES_MAP[String(it.asset || "").trim().toUpperCase()] || tvSymbol(it.asset);
+      return `<a class="ch-link" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(future)}" target="_blank" rel="noopener noreferrer">Apri ${esc(future)} su TradingView ↗</a>`;
     })()}
   </section>
   ${disclaimer()}`;
@@ -971,41 +981,172 @@ function disclaimer(){
 }
 
 /* ---------- router ---------- */
-let tvNode = null, tvSym = null;
+/* Grafico della stagionalità con Lightweight Charts (libreria open source di TradingView):
+   candele grigie prima della finestra (tranne la D-1), verdi/rosse dentro, C2 blu,
+   ⚠️ sulla 1ª candela opposta, freccia ENTRY sulla C2 e box Risk/Reward (TP verde, SL rosso). */
+const LWC_URL = "https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js";
+let lwcPromise = null, chNode = null, chKey = null, chChart = null, chResize = null;
+const candleCache = {};
 function isDark(){
   const t = document.documentElement.getAttribute("data-theme");
   if (t) return t === "dark";
   return window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches;
 }
-function mountTV(){
-  const slot = document.getElementById("tv-slot");
-  if (!slot) return;
-  const sym = slot.dataset.symbol;
-  if (tvNode && tvSym === sym){ slot.appendChild(tvNode); return; }
-  tvSym = sym;
-  tvNode = document.createElement("div");
-  tvNode.className = "tradingview-widget-container";
-  tvNode.style.height = "100%";
-  const inner = document.createElement("div");
-  inner.className = "tradingview-widget-container__widget";
-  inner.style.height = "100%";
-  tvNode.appendChild(inner);
-  const sc = document.createElement("script");
-  sc.src = "https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";
-  sc.async = true;
-  sc.text = JSON.stringify({
-    autosize: true, symbol: sym, interval: "D", timezone: "Europe/Zurich",
-    theme: isDark() ? "dark" : "light", style: "1", locale: "it",
-    hide_volume: true, studies: [], hide_side_toolbar: true, hide_top_toolbar: false,
-    hide_legend: false, withdateranges: true, allow_symbol_change: true,
-    save_image: false, details: false, hotlist: false, calendar: false,
-    backgroundColor: isDark() ? "#171717" : "#ffffff",
-    gridColor: isDark() ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)",
-    support_host: "https://www.tradingview.com"
+function loadLWC(){
+  if (window.LightweightCharts) return Promise.resolve(window.LightweightCharts);
+  if (!lwcPromise) lwcPromise = new Promise((ok, ko) => {
+    const sc = document.createElement("script");
+    sc.src = LWC_URL; sc.async = true;
+    sc.onload = () => ok(window.LightweightCharts);
+    sc.onerror = () => { lwcPromise = null; ko(new Error("Libreria del grafico non disponibile")); };
+    document.head.appendChild(sc);
   });
-  tvNode.appendChild(sc);
-  slot.appendChild(tvNode);
+  return lwcPromise;
 }
+const isoD = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+const isoTxt = s => { const d = pdate(s); return d ? isoD(d) : ""; };
+function addDays(iso, n){ const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return isoD(d); }
+
+/* Box rettangolare tra due date e due prezzi, disegnato dietro le candele */
+class RRBox {
+  constructor(t1, t2, p1, p2, fill){ Object.assign(this, {t1, t2, p1, p2, fill}); }
+  attached(p){ this.chart = p.chart; this.series = p.series; }
+  updateAllViews(){}
+  paneViews(){
+    const self = this;
+    return [{
+      zOrder: () => "bottom",
+      renderer: () => ({
+        draw(target){
+          const ts = self.chart.timeScale();
+          const x1 = ts.timeToCoordinate(self.t1), x2 = ts.timeToCoordinate(self.t2);
+          const y1 = self.series.priceToCoordinate(self.p1), y2 = self.series.priceToCoordinate(self.p2);
+          if (x1 == null || x2 == null || y1 == null || y2 == null) return;
+          target.useBitmapCoordinateSpace(sc => {
+            const ctx = sc.context, hr = sc.horizontalPixelRatio, vr = sc.verticalPixelRatio;
+            ctx.fillStyle = self.fill;
+            ctx.fillRect(Math.round(Math.min(x1, x2) * hr), Math.round(Math.min(y1, y2) * vr),
+              Math.round(Math.abs(x2 - x1) * hr), Math.round(Math.abs(y2 - y1) * vr));
+          });
+        }
+      })
+    }];
+  }
+}
+
+async function fetchCandles(asset, from){
+  const k = asset + "|" + from;
+  if (candleCache[k]) return candleCache[k];
+  const r = await fetch("/api/candles?asset=" + encodeURIComponent(asset) + "&from=" + from);
+  const j = await r.json().catch(() => null);
+  if (!r.ok || !j || !j.ok) throw new Error((j && j.error) || ("HTTP " + r.status));
+  return (candleCache[k] = j.candles);
+}
+
+function mountChart(it){
+  const slot = document.getElementById("ch-slot");
+  if (!slot || !it || !it.start || !it.end) return;
+  const key = [it.id, it.c1Date, it.trigDate, it.entry, it.tp, it.sl, it.esitoRTxt, it.chiusura, isDark()].join("|");
+  if (chNode && chKey === key){ slot.innerHTML = ""; slot.appendChild(chNode); chChart && chChart.timeScale(); return; }
+  if (chChart){ try { chChart.remove(); } catch(e){} chChart = null; }
+  if (chResize){ chResize.disconnect(); chResize = null; }
+  chKey = key;
+  chNode = document.createElement("div");
+  chNode.style.height = "100%";
+  const msg = document.getElementById("ch-msg");
+  const inizio = isoD(it.start), fine = isoD(it.end);
+  Promise.all([loadLWC(), fetchCandles(it.asset, addDays(inizio, -40))]).then(([LWC, raw]) => {
+    if (chKey !== key) return;
+    const s2 = document.getElementById("ch-slot");
+    if (!s2) return;
+    const L = it.dir === "LONG";
+    const chiusura = isoTxt(it.chiusura);
+    const limite = chiusura || fine;
+    // Candele fino alla chiusura del trade (o alla fine della finestra)
+    const cs = raw.filter(c => c.time <= limite);
+    if (cs.length < 2) throw new Error("Dati insufficienti per il grafico");
+    const iPrima = cs.findIndex(c => c.time >= inizio);
+    const iDm1 = iPrima > 0 ? iPrima - 1 : (iPrima < 0 ? cs.length - 1 : -1);
+    const dC1 = isoTxt(it.c1Date), dC2 = isoTxt(it.trigDate);
+    const VERDE = "#16a34a", ROSSO = "#dc2626", BLU = "#2563eb", GRIGIO = isDark() ? "#4b5563" : "#c4c9d2";
+    const data = cs.map((c, i) => {
+      let col = c.close >= c.open ? VERDE : ROSSO;
+      if (c.time < inizio && i !== iDm1) col = GRIGIO;
+      if (c.time === dC2) col = BLU;
+      return Object.assign({}, c, {color: col, wickColor: col, borderColor: col});
+    });
+    // Giorni futuri fino alla fine della finestra (spazio vuoto a destra)
+    let d = cs[cs.length - 1].time;
+    for (let n = 0; n < 60 && d < fine && !chiusura; ){
+      d = addDays(d, 1);
+      const g = new Date(d + "T12:00:00").getDay();
+      if (g === 0 || g === 6) continue;
+      data.push({time: d}); n++;
+    }
+    s2.innerHTML = "";
+    s2.appendChild(chNode);
+    const dark = isDark();
+    const chart = LWC.createChart(chNode, {
+      autoSize: true,
+      layout: {background: {type: "solid", color: dark ? "#171717" : "#ffffff"}, textColor: dark ? "#d4d4d4" : "#334155", fontFamily: "inherit"},
+      grid: {vertLines: {color: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}, horzLines: {color: dark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)"}},
+      rightPriceScale: {borderVisible: false, scaleMargins: {top: 0.1, bottom: 0.1}},
+      timeScale: {borderVisible: false, rightOffset: 2},
+      localization: {locale: "it-IT", dateFormat: "dd/MM/yyyy",
+        priceFormatter: p => p.toLocaleString("it-IT", {minimumFractionDigits: p < 10 ? 3 : 2, maximumFractionDigits: p < 10 ? 3 : 2})},
+      crosshair: {mode: 0}
+    });
+    chChart = chart;
+    const series = chart.addCandlestickSeries({priceLineVisible: false, lastValueVisible: true});
+    series.setData(data);
+
+    const markers = [];
+    if (dC1 && cs.some(c => c.time === dC1))
+      markers.push({time: dC1, position: L ? "belowBar" : "aboveBar", color: "#f59e0b", shape: "circle", text: "⚠️ 1ª opposta"});
+    // Livelli del trade
+    const avg = it.avg;
+    const cC2 = dC2 ? cs.find(c => c.time === dC2) : null;
+    if (cC2){
+      markers.push({time: dC2, position: L ? "belowBar" : "aboveBar", color: BLU, shape: L ? "arrowUp" : "arrowDown", text: "ENTRY"});
+      // Livelli dal Diario, con controllo di coerenza: "29.367" senza decimali è ambiguo (29367 o 29,367),
+      // quindi un valore lontano da quello atteso viene ricalcolato da Entry e AVG Medio
+      const vicino = (v, atteso, tol) => v && atteso && Math.abs(v / atteso - 1) <= tol ? v : atteso;
+      const entry = vicino(num(it.entry), cC2.close, 0.2);
+      const tp = avg ? vicino(num(it.tp), L ? entry * (1 + avg / 100) : entry * (1 - avg / 100), 0.02) : num(it.tp);
+      const sl = avg ? vicino(num(it.sl), L ? entry * (1 - avg / 200) : entry * (1 + avg / 200), 0.02) : num(it.sl);
+      if (tp && sl){
+        // La scala verticale include sempre TP e SL, così il box Risk/Reward è visibile per intero
+        series.applyOptions({autoscaleInfoProvider: orig => {
+          const r = orig();
+          if (!r || !r.priceRange) return r;
+          const pr = r.priceRange;
+          return Object.assign({}, r, {priceRange: {minValue: Math.min(pr.minValue, tp, sl), maxValue: Math.max(pr.maxValue, tp, sl)}});
+        }});
+        const fineBox = data[data.length - 1].time;
+        series.attachPrimitive(new RRBox(dC2, fineBox, entry, tp, "rgba(22,163,74,0.16)"));
+        series.attachPrimitive(new RRBox(dC2, fineBox, entry, sl, "rgba(220,38,38,0.16)"));
+        const pctTxt = x => x.toLocaleString("it-IT", {maximumFractionDigits: 2}) + "%";
+        series.createPriceLine({price: tp, color: VERDE, lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
+          title: "TP " + (L ? "+" : "−") + (avg ? pctTxt(avg) : "")});
+        series.createPriceLine({price: sl, color: ROSSO, lineWidth: 1, lineStyle: 2, axisLabelVisible: true,
+          title: "SL " + (L ? "−" : "+") + (avg ? pctTxt(avg / 2) : "")});
+        series.createPriceLine({price: entry, color: dark ? "#cbd5e1" : "#334155", lineWidth: 1, lineStyle: 0, axisLabelVisible: true,
+          title: "Entry · R:R 1:2"});
+      }
+    }
+    markers.sort((a, b) => a.time < b.time ? -1 : 1);
+    series.setMarkers(markers);
+    // Vista: da ~15 candele prima della finestra fino alla fine
+    const iStart = Math.max(0, (iPrima < 0 ? cs.length : iPrima) - 15);
+    chart.timeScale().setVisibleLogicalRange({from: iStart - 0.5, to: data.length + 1});
+  }).catch(err => {
+    if (chKey !== key) return;
+    const m = document.getElementById("ch-msg");
+    if (m) m.textContent = "Grafico non disponibile al momento (" + err.message + ").";
+    chNode = null; chKey = null;
+  });
+}
+
 function route(){
   const path = location.pathname.replace(/\/+$/, "") || "/";
   const items = build();
@@ -1020,9 +1161,9 @@ function route(){
   else html = viewHome(items);
   const keepFocus = document.activeElement && document.activeElement.id === "q";
   const pos = keepFocus ? document.activeElement.selectionStart : null;
-  if (tvNode && tvNode.parentNode) tvNode.parentNode.removeChild(tvNode);
+  if (chNode && chNode.parentNode) chNode.parentNode.removeChild(chNode);
   app.innerHTML = html;
-  mountTV();
+  mountChart(m ? items.find(i => i.id === decodeURIComponent(m[1])) : null);
   document.getElementById("nav-home").setAttribute("aria-current", nav === "home" ? "page" : "false");
   document.getElementById("nav-radar").setAttribute("aria-current", nav === "radar" ? "page" : "false");
   document.getElementById("nav-cal").setAttribute("aria-current", nav === "cal" ? "page" : "false");
