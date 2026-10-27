@@ -557,7 +557,14 @@ function build(){
         prio: String(g("PRIORITÀ BACKTEST (da score)") || "").trim(),
         years, wr5: wrWindow(years, 5), wr10: wrWindow(years, 10)
       },
-      flags: {c1: cal.c1, trig: cal.trig || !!String(g("Entry")||"").trim(), chiuso: cal.chiuso || !!esito || !!esitoRTxt}
+      // Stato del trade dal Diario (compilato dal bot), con il Calendario come riserva.
+      // Ogni passo successivo implica i precedenti: chiuso ⇒ trigger ⇒ 1ª candela.
+      flags: (() => {
+        const chiuso = cal.chiuso || !!esito || !!esitoRTxt;
+        const trig = chiuso || cal.trig || !!String(g("Data Trigger") || "").trim() || !!String(g("Entry") || "").trim();
+        const c1 = trig || cal.c1 || !!String(g("Data 1ª Candela") || "").trim();
+        return {c1, trig, chiuso};
+      })()
     });
   });
   return out;
@@ -852,7 +859,7 @@ function viewDetail(items, id){
   <section class="sec">
     <div class="sec-h"><h2>Stato del trade</h2></div>
     <div class="steps">
-      ${step(it.flags.c1, "1ª candela opposta", it.flags.c1 ? `Si è formata la prima candela daily ${contr}.` : `In attesa della prima candela daily ${contr}.`)}
+      ${step(it.flags.c1, "1ª candela opposta", it.flags.c1 ? `Si è formata la prima candela daily ${contr}${it.c1Date ? " il " + esc(it.c1Date) : ""}.` : `In attesa della prima candela daily ${contr}.`)}
       ${step(it.flags.trig, "Trigger confermato", it.flags.trig ? `Seconda candela ${contr} chiusa: ingresso eseguito${it.trigDate ? " il " + esc(it.trigDate) : ""}.` : "In attesa della conferma del trigger.")}
       ${step(it.flags.chiuso, "Chiuso", it.flags.chiuso ? `Trade chiuso${it.chiusura ? " il " + esc(it.chiusura) : ""}${it.esito ? " · " + esc(it.esito) : ""}${it.esitoRTxt ? ` · Esito <b class="${esitoCls(it)}-txt">${esitoTxt(it)}</b>` : ""}.` : "Trade non ancora chiuso.")}
     </div>
