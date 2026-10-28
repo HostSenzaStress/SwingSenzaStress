@@ -52,6 +52,14 @@ function candele(dati, sym) {
     if (out.length && out[out.length - 1].time === d) out.pop();
     out.push({ time: d, open: o, high: h, low: l, close: c });
   });
+  // Candela ancora in corso (non usata per i trigger): segnata con live = true
+  const ultima = out[out.length - 1];
+  if (ultima) {
+    const adesso = new Date(), oggi = giorno(adesso, tz), h = ora(adesso, tz);
+    if (/=F$/.test(sym)) ultima.live = ultima.time > oggi || (ultima.time === oggi && h < 17);
+    else if (tz === "America/New_York") ultima.live = ultima.time === oggi && h < 16;
+    else ultima.live = ultima.time >= oggi;
+  }
   return out;
 }
 

@@ -873,7 +873,7 @@ function viewDetail(items, id){
       <span><i style="background:#c4c9d2"></i>Prima della finestra</span>
       <span><i style="background:#16a34a"></i>Rialzista</span><span><i style="background:#dc2626"></i>Ribassista</span>
       <span>⚠️ 1ª candela opposta</span><span><i style="background:#2563eb"></i>C2 · ingresso</span>
-      <span><i style="background:rgba(22,163,74,.35)"></i>Take profit</span><span><i style="background:rgba(220,38,38,.35)"></i>Stop loss</span><span>🏁 Chiusura del trade</span>
+      <span><i style="background:rgba(22,163,74,.35)"></i>Take profit</span><span><i style="background:rgba(220,38,38,.35)"></i>Stop loss</span><span>🏁 Chiusura del trade</span><span><i style="background:#16a34a66"></i>Candela di oggi, ancora in corso</span>
     </div>
     <p class="note" id="ch-nota" hidden></p>
     <p class="note">Candele daily dei futures, gli stessi dati usati per trigger ed esiti (fonte Yahoo Finance, possono essere ritardate di qualche minuto).</p>
@@ -1141,6 +1141,8 @@ function mountChart(it){
       let col = c.close >= c.open ? VERDE : ROSSO;
       if (c.time < inizio && i !== iDm1) col = GRIGIO;
       if (c.time === dC2) col = BLU;
+      // Candela del giorno ancora in corso: semitrasparente (non conta per i trigger finché non chiude)
+      if (c.live) col = col + "66";
       return Object.assign({}, c, {color: col, wickColor: col, borderColor: col});
     });
     // Trade aperto o finestra in corso: giorni futuri fino alla fine della finestra
