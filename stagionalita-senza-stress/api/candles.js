@@ -56,7 +56,8 @@ function candele(dati, sym) {
   const ultima = out[out.length - 1];
   if (ultima) {
     const adesso = new Date(), oggi = giorno(adesso, tz), h = ora(adesso, tz);
-    if (/=F$/.test(sym)) ultima.live = ultima.time > oggi || (ultima.time === oggi && h < 17);
+    // Futures: dalle 18:00 di New York la nuova sessione compare ancora con la data di oggi
+    if (/=F$/.test(sym)) ultima.live = ultima.time > oggi || (ultima.time === oggi && (h < 17 || h >= 18));
     else if (tz === "America/New_York") ultima.live = ultima.time === oggi && h < 16;
     else ultima.live = ultima.time >= oggi;
   }
