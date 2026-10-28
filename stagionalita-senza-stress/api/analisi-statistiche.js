@@ -27,15 +27,24 @@ function tradeC2(cs, ini, fin, long, avg) {
   }
   if (iE < 0) return null;
   const e = cs[iE].close, risk = avg / 2;
+  // Contesto di trend alla C2: distanza dalla media a 200 giorni e sua pendenza su 20 giorni, "a favore" della direzione
+  let sma = null, pend = null;
+  if (iE >= 219) {
+    const m = k => { let t = 0; for (let x = k - 199; x <= k; x++) t += cs[x].close; return t / 200; };
+    const m0 = m(iE), m20 = m(iE - 20), segno = long ? 1 : -1;
+    sma = Math.round(segno * (e / m0 - 1) * 10000) / 100;
+    pend = Math.round(segno * (m0 / m20 - 1) * 10000) / 100;
+  }
+  const esito = (R, u) => ({ R, u, sma, pend });
   const stop = long ? e * (1 - risk / 100) : e * (1 + risk / 100), tgt = long ? e * (1 + avg / 100) : e * (1 - avg / 100);
   let ult = iE;
   for (let j = iE + 1; j < cs.length && dentro(cs[j]); j++) {
     ult = j;
     const b = cs[j], sl = long ? b.low <= stop : b.high >= stop, tp = long ? b.high >= tgt : b.low <= tgt;
-    if (sl || tp) return sl ? -1 : 2;
+    if (sl || tp) return sl ? esito(-1, "SL") : esito(2, "TP");
   }
   const p = cs[ult].close, pct = long ? (p / e - 1) * 100 : (1 - p / e) * 100;
-  return Math.round(pct / risk * 100) / 100;
+  return esito(Math.round(pct / risk * 100) / 100, "Fine");
 }
 
 // Rendimento stagionale della finestra (a favore della direzione) e drawdown massimo dentro la finestra, in %
@@ -64,7 +73,9 @@ async function calcolaAsset(asset) {
       if (fin >= oggi || piuGiorni(ini, -10) < cs[0].time) continue;
       const s = stagione(cs, ini, fin, f.long);
       if (!s) continue;
-      anni.push({ y, ret: Math.round(s.ret * 100) / 100, dd: Math.round(s.dd * 100) / 100, R: tradeC2(cs, ini, fin, f.long, f.avg) });
+      const t = tradeC2(cs, ini, fin, f.long, f.avg);
+      anni.push({ y, ret: Math.round(s.ret * 100) / 100, dd: Math.round(s.dd * 100) / 100,
+        R: t ? t.R : null, u: t ? t.u : null, sma: t ? t.sma : null, pend: t ? t.pend : null });
     }
     out.push({ id: f.id, asset: f.asset, long: f.long, avg: f.avg, anni });
   });
@@ -122,17 +133,59 @@ function riassuntoStat(parti) {
   return { trade: obs.length, exp: tot, asset: parti.length, senzaDati: parti.filter(p => !p.conDati).map(p => p.asset), righe };
 }
 
+// Confronti a gruppi su TUTTI i trade C2 (non serve lo storico di 10 anni)
+function riassuntoGruppi(parti) {
+  const t = [];
+  parti.forEach(p => p.finestre.forEach(f => f.anni.forEach(a => { if (a.R != null) t.push(Object.assign({ avg: f.avg, id: f.id, long: f.long }, a)); })));
+  const st = (nome, arr) => {
+    const n = arr.length, somma = arr.reduce((s, o) => s + o.R, 0);
+    const vinti = arr.filter(o => o.R > 0).map(o => o.R), persi = arr.filter(o => o.R <= 0).map(o => o.R);
+    const m = a => a.length ? a.reduce((s, x) => s + x, 0) / a.length : null;
+    return { nome, n, fin: new Set(arr.map(o => o.id)).size, wr: n ? vinti.length / n * 100 : null, exp: n ? somma / n : null, tot: somma,
+      tp: n ? arr.filter(o => o.u === "TP").length / n * 100 : null, sl: n ? arr.filter(o => o.u === "SL").length / n * 100 : null,
+      mv: m(vinti), mp: m(persi) };
+  };
+  const conSma = t.filter(o => o.sma != null);
+  const terzili = (arr, k) => { const v = arr.filter(o => o[k] != null).sort((a, b) => a[k] - b[k]), n = v.length;
+    return [v.slice(0, Math.floor(n / 3)), v.slice(Math.floor(n / 3), Math.floor(2 * n / 3)), v.slice(Math.floor(2 * n / 3))]; };
+  const rng = (g, k, u) => g.length ? ` (${f1(g[0][k])}${u} → ${f1(g[g.length - 1][k])}${u})` : "";
+  const dist = terzili(conSma, "sma"), pend = terzili(conSma, "pend");
+  return {
+    tutti: st("Tutti i trade", t),
+    avg: [st("AVG sotto il 6%", t.filter(o => o.avg < 6)), st("AVG 6% o più", t.filter(o => o.avg >= 6))],
+    avgFine: [st("AVG sotto il 4%", t.filter(o => o.avg < 4)), st("AVG 4–6%", t.filter(o => o.avg >= 4 && o.avg < 6)),
+      st("AVG 6–9%", t.filter(o => o.avg >= 6 && o.avg < 9)), st("AVG 9% o più", t.filter(o => o.avg >= 9))],
+    sma: [st("A favore del trend (LONG sopra la SMA200, SHORT sotto)", conSma.filter(o => o.sma > 0)),
+      st("Contro trend", conSma.filter(o => o.sma <= 0))],
+    smaDir: [st("LONG sopra la SMA200", conSma.filter(o => o.long && o.sma > 0)), st("LONG sotto la SMA200", conSma.filter(o => o.long && o.sma <= 0)),
+      st("SHORT sotto la SMA200", conSma.filter(o => !o.long && o.sma > 0)), st("SHORT sopra la SMA200", conSma.filter(o => !o.long && o.sma <= 0))],
+    pendenza: [st("SMA200 in salita a favore (pendenza 20 gg > 0)", conSma.filter(o => o.pend > 0)), st("SMA200 contro", conSma.filter(o => o.pend <= 0))],
+    combo: [st("Prezzo e pendenza entrambi a favore", conSma.filter(o => o.sma > 0 && o.pend > 0)),
+      st("Uno solo a favore", conSma.filter(o => (o.sma > 0) !== (o.pend > 0))),
+      st("Entrambi contro", conSma.filter(o => o.sma <= 0 && o.pend <= 0))],
+    dist: dist.map((g, i) => st(["Distanza bassa", "Distanza media", "Distanza alta"][i] + rng(g, "sma", "%"), g)),
+    pendT: pend.map((g, i) => st(["Pendenza bassa", "Pendenza media", "Pendenza alta"][i] + rng(g, "pend", "%"), g)),
+    rhoSma: conSma.length > 10 ? rho(conSma.map(o => o.sma), conSma.map(o => o.R)) : null,
+    rhoPend: conSma.length > 10 ? rho(conSma.map(o => o.pend), conSma.map(o => o.R)) : null
+  };
+}
+
 const f2 = n => n == null ? "—" : (n > 0 ? "+" : "") + n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const f1 = n => n == null ? "—" : n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-function paginaStat(d) {
+function tabGruppi(titolo, nota, righe, rif) {
+  return `<h2>${titolo}</h2>${nota ? `<p>${nota}</p>` : ""}<div class="box"><table><tr><th>Gruppo</th><th>Trade</th><th>Win rate</th><th>Expectancy</th><th>R totali</th><th>TP / SL</th></tr>
+${righe.map(r => `<tr><td>${r.nome}<br><small>${r.fin} finestre · media vinti ${f2(r.mv)}R, persi ${f2(r.mp)}R</small></td><td>${r.n}</td><td>${f1(r.wr)}%</td>
+<td class="${r.exp >= rif ? "pos" : "neg"}"><b>${f2(r.exp)}R</b></td><td>${f2(r.tot)}R</td><td>${f1(r.tp)}% / ${f1(r.sl)}%</td></tr>`).join("")}</table></div>`;
+}
+function paginaStat(d, g) {
   const cella = g => `<td class="${g.exp >= d.exp ? "pos" : "neg"}"><b>${f2(g.exp)}R</b><br><small>${f1(g.da)}–${f1(g.a)}</small></td>`;
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Statistiche fuori campione</title><style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;background:#f6f7f3;color:#1b2433}
-h1{font-size:22px;margin:0 0 6px}p{font-size:14px;line-height:1.5;color:#4a5568;margin:6px 0}
+h1{font-size:22px;margin:0 0 6px}h2{font-size:17px;margin:26px 0 4px}p{font-size:14px;line-height:1.5;color:#4a5568;margin:6px 0}
 .box{background:#fff;border:1px solid #dce1e8;border-radius:12px;padding:10px;margin-top:12px}
 table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}th,td{padding:7px 4px;border-bottom:1px solid #eef0f3;text-align:right;vertical-align:top}
-th:first-child,td:first-child{text-align:left}th{color:#4a5568;font-weight:600}small{color:#6b7280;font-weight:400}.pos{color:#15803d}.neg{color:#b91c1c}
+th:first-child,td:first-child{text-align:left;min-width:150px;width:40%}th{color:#4a5568;font-weight:600}small{color:#6b7280;font-weight:400}.pos{color:#15803d}.neg{color:#b91c1c}
 </style></head><body>
 <h1>Quali statistiche prevedono i risultati?</h1>
 <p>Test fuori campione: per ogni anno le statistiche sono calcolate solo sugli anni precedenti, poi si misura il trade C2 di quell'anno (regole attuali, filtri 80%). ${d.trade} trade, ${d.asset} asset, expectancy media <b>${f2(d.exp)}R</b>.</p>
@@ -141,6 +194,15 @@ th:first-child,td:first-child{text-align:left}th{color:#4a5568;font-weight:600}s
 ${d.righe.map(r => `<tr><td>${r.nome}</td><td>${r.rho == null ? "—" : f2(r.rho)}</td>${r.gruppi.map(cella).join("")}</tr>`).join("")}
 </table></div>
 <p>Sotto ogni expectancy l'intervallo dei valori della statistica in quel gruppo. Asset senza dati: ${d.senzaDati.join(", ") || "nessuno"}.</p>
+${g ? `<p style="margin-top:22px">Le tabelle seguenti usano <b>tutti</b> i trade C2 dal 2006 (${g.tutti.n} trade, win rate ${f1(g.tutti.wr)}%, expectancy <b>${f2(g.tutti.exp)}R</b>, ${f2(g.tutti.tot)}R totali). Con rischio 1% a trade, 1R = 1% del conto.</p>
+${tabGruppi("AVG sotto e sopra il 6%", "AVG medio del Diario della stagionalità.", g.avg, g.tutti.exp)}
+${tabGruppi("AVG più nel dettaglio", "", g.avgFine, g.tutti.exp)}
+${tabGruppi("Prezzo rispetto alla media a 200 giorni", "Misurato alla chiusura della C2, cioè al momento dell'ingresso. «A favore» = LONG con prezzo sopra la SMA200 oppure SHORT con prezzo sotto.", g.sma, g.tutti.exp)}
+${tabGruppi("Divisi per direzione", "", g.smaDir, g.tutti.exp)}
+${tabGruppi("Pendenza della SMA200", "Variazione della SMA200 negli ultimi 20 giorni, a favore della direzione del trade.", g.pendenza, g.tutti.exp)}
+${tabGruppi("Prezzo e pendenza insieme", "", g.combo, g.tutti.exp)}
+${tabGruppi("Distanza dalla SMA200 (terzili)", `Distanza del prezzo dalla SMA200 a favore della direzione. ρ = ${f2(g.rhoSma)}.`, g.dist, g.tutti.exp)}
+${tabGruppi("Pendenza della SMA200 (terzili)", `ρ = ${f2(g.rhoPend)}.`, g.pendT, g.tutti.exp)}` : ""}
 </body></html>`;
 }
 
@@ -156,6 +218,8 @@ const rho = ${rho.toString()};
 const riassuntoStat = ${riassuntoStat.toString()};
 const f1 = ${f1.toString()};
 const f2 = ${f2.toString()};
+const tabGruppi = ${tabGruppi.toString()};
+const riassuntoGruppi = ${riassuntoGruppi.toString()};
 const paginaStat = ${paginaStat.toString()};
 const ASSET = ${JSON.stringify(assets)};
 (async () => {
@@ -171,7 +235,7 @@ const ASSET = ${JSON.stringify(assets)};
     }
   }
   await Promise.all([lavora(), lavora(), lavora(), lavora()]);
-  const html = paginaStat(riassuntoStat(parti));
+  const html = paginaStat(riassuntoStat(parti), riassuntoGruppi(parti));
   document.open(); document.write(html); document.close();
 })();
 </script></body></html>`;
@@ -195,3 +259,5 @@ module.exports = async (req, res) => {
 };
 module.exports.riassuntoStat = riassuntoStat;
 module.exports.calcolaAsset = calcolaAsset;
+module.exports.riassuntoGruppi = riassuntoGruppi;
+module.exports.paginaStat = paginaStat;
