@@ -9,6 +9,9 @@
   "functions": {
     "api/analisi-timing.js": {
       "maxDuration": 60
+    },
+    "api/analisi-statistiche.js": {
+      "maxDuration": 60
     }
   }
 }

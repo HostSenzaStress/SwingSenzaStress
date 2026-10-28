@@ -219,3 +219,6 @@ module.exports.statistiche = statistiche;
 module.exports.pagina = pagina;
 module.exports.riassunto = riassunto;
 module.exports.calcolaAsset = calcolaAsset;
+module.exports.leggiDiario = leggiDiario;
+module.exports.storico = storico;
+module.exports.chiave = chiave;
