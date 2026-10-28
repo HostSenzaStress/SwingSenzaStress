@@ -48,6 +48,35 @@ function tradeC2(cs, ini, fin, long, avg) {
   return esito(Math.round(pct / risk * 100) / 100, "Fine");
 }
 
+// Strategia "ordine al DD medio": ordine limite a (DD medio x k) dal prezzo di riferimento
+// (chiusura del giorno prima dell'inizio finestra). Se il prezzo apre già oltre il livello si entra all'apertura.
+// TP = AVG medio, SL = metà AVG dal prezzo d'ingresso. Sulla candela d'ingresso conta solo lo SL (ipotesi prudente).
+// Chiusura all'ultima candela della finestra. Restituisce null se l'ordine non viene eseguito.
+function tradeDD(cs, ini, fin, long, avg, ddPct) {
+  if (!(ddPct > 0)) return null;
+  const primo = cs.findIndex(b => b.time >= ini);
+  if (primo < 1 || cs[primo].time > fin) return null;
+  const rif = cs[primo - 1].close, lim = long ? rif * (1 - ddPct / 100) : rif * (1 + ddPct / 100);
+  for (let i = primo; i < cs.length && cs[i].time <= fin; i++) {
+    const b = cs[i];
+    const preso = long ? b.low <= lim : b.high >= lim;
+    if (!preso) continue;
+    const e = long ? Math.min(b.open, lim) : Math.max(b.open, lim), risk = avg / 2;
+    const stop = long ? e * (1 - risk / 100) : e * (1 + risk / 100), tgt = long ? e * (1 + avg / 100) : e * (1 - avg / 100);
+    const giorni = (ms(fin) - ms(ini)) / 864e5, timing = giorni > 0 ? (ms(b.time) - ms(ini)) / 864e5 / giorni * 100 : 0;
+    if (long ? b.low <= stop : b.high >= stop) return { R: -1, u: "SL", timing };
+    let ult = i;
+    for (let j = i + 1; j < cs.length && cs[j].time <= fin; j++) {
+      ult = j;
+      const c = cs[j], sl = long ? c.low <= stop : c.high >= stop, tp = long ? c.high >= tgt : c.low <= tgt;
+      if (sl || tp) return { R: sl ? -1 : 2, u: sl ? "SL" : "TP", timing };
+    }
+    const p = cs[ult].close, pct = long ? (p / e - 1) * 100 : (1 - p / e) * 100;
+    return { R: Math.round(pct / risk * 100) / 100, u: "Fine", timing };
+  }
+  return null;
+}
+
 // Rendimento stagionale della finestra (a favore della direzione) e drawdown massimo dentro la finestra, in %
 function stagione(cs, ini, fin, long) {
   const iPrima = cs.findIndex(b => b.time >= ini) - 1;
@@ -75,10 +104,15 @@ async function calcolaAsset(asset) {
       const s = stagione(cs, ini, fin, f.long);
       if (!s) continue;
       const t = tradeC2(cs, ini, fin, f.long, f.avg);
+      // DD medio "fuori campione": media dei drawdown dei 10 anni precedenti (serve uno storico di almeno 5 anni)
+      const prec = anni.slice(-10), ddOos = prec.length >= 5 ? prec.reduce((x, a) => x + a.dd, 0) / prec.length : null;
+      const dd = {};
+      [0.5, 1, 1.5].forEach(k => { dd["d" + k] = tradeDD(cs, ini, fin, f.long, f.avg, f.ddMed * k); });
+      dd.oos = ddOos != null ? tradeDD(cs, ini, fin, f.long, f.avg, ddOos) : undefined;
       anni.push({ y, ret: Math.round(s.ret * 100) / 100, dd: Math.round(s.dd * 100) / 100,
-        R: t ? t.R : null, u: t ? t.u : null, sma: t ? t.sma : null, pend: t ? t.pend : null });
+        R: t ? t.R : null, u: t ? t.u : null, sma: t ? t.sma : null, pend: t ? t.pend : null, ddS: dd });
     }
-    out.push({ id: f.id, asset: f.asset, long: f.long, avg: f.avg, anni });
+    out.push({ id: f.id, asset: f.asset, long: f.long, avg: f.avg, ddMed: f.ddMed, anni });
   });
   const timing = await T.calcolaAsset(asset, { finestre, cs });
   return { asset, conDati: cs.length > 0, finestre: out, timing };
@@ -136,6 +170,36 @@ function riassuntoStat(parti) {
 }
 
 // Confronti a gruppi su TUTTI i trade C2 (non serve lo storico di 10 anni)
+function riassuntoDD(parti) {
+  const fa = []; // una riga per finestra-anno
+  parti.forEach(p => p.finestre.forEach(f => f.anni.forEach(a => { if (a.ddS) fa.push(Object.assign({ id: f.id, avg: f.avg, ddMed: f.ddMed }, a)); })));
+  const st = (nome, arr, base) => {
+    const n = arr.length, somma = arr.reduce((s, o) => s + o.R, 0);
+    return { nome, n, base, fill: base ? n / base * 100 : null, wr: n ? arr.filter(o => o.R > 0).length / n * 100 : null, exp: n ? somma / n : null, tot: somma,
+      tp: n ? arr.filter(o => o.u === "TP").length / n * 100 : null, sl: n ? arr.filter(o => o.u === "SL").length / n * 100 : null,
+      fine: n ? arr.filter(o => o.u === "Fine").length / n * 100 : null,
+      tim: n ? arr.reduce((s, o) => s + (o.timing || 0), 0) / n : null };
+  };
+  const conDD = fa.filter(o => o.ddMed > 0);
+  const preso = k => conDD.map(o => o.ddS[k]).filter(Boolean);
+  const c2 = conDD.filter(o => o.R != null).map(o => ({ R: o.R, u: o.u }));
+  const oosBase = fa.filter(o => o.ddS.oos !== undefined);
+  const dd1 = conDD.filter(o => o.ddS.d1), noDD1 = conDD.filter(o => !o.ddS.d1);
+  return {
+    finestreAnni: conDD.length, finestre: new Set(conDD.map(o => o.id)).size,
+    righe: [st("C2 (metodo attuale, filtri 80%)", c2, conDD.length),
+      st("Ordine a metà DD medio (0,5×)", preso("d0.5"), conDD.length),
+      st("Ordine al DD medio (1×)", preso("d1"), conDD.length),
+      st("Ordine a 1,5× il DD medio", preso("d1.5"), conDD.length),
+      st("DD medio fuori campione (media 10 anni precedenti)", oosBase.map(o => o.ddS.oos).filter(Boolean), oosBase.length)],
+    selezione: [st("C2 negli anni in cui l'ordine al DD medio scatta", dd1.filter(o => o.R != null).map(o => ({ R: o.R, u: o.u })), dd1.length),
+      st("C2 negli anni in cui l'ordine NON scatta", noDD1.filter(o => o.R != null).map(o => ({ R: o.R, u: o.u })), noDD1.length)],
+    combo: [st("Solo C2", c2, conDD.length),
+      st("C2 + ordine al DD medio (due trade separati)", [...c2, ...preso("d1")], conDD.length),
+      st("Ordine al DD medio, altrimenti C2", conDD.map(o => o.ddS.d1 || (o.R != null ? { R: o.R, u: o.u } : null)).filter(Boolean), conDD.length)]
+  };
+}
+
 function riassuntoGruppi(parti) {
   const t = [];
   parti.forEach(p => p.finestre.forEach(f => f.anni.forEach(a => { if (a.R != null) t.push(Object.assign({ avg: f.avg, id: f.id, long: f.long }, a)); })));
@@ -179,7 +243,13 @@ function tabGruppi(titolo, nota, righe, rif) {
 ${righe.map(r => `<tr><td>${r.nome}<br><small>${r.fin} finestre · media vinti ${f2(r.mv)}R, persi ${f2(r.mp)}R</small></td><td>${r.n}</td><td>${f1(r.wr)}%</td>
 <td class="${r.exp >= rif ? "pos" : "neg"}"><b>${f2(r.exp)}R</b></td><td>${f2(r.tot)}R</td><td>${f1(r.tp)}% / ${f1(r.sl)}%</td></tr>`).join("")}</table></div>`;
 }
-function paginaStat(d, g, t) {
+function tabDD(titolo, nota, righe) {
+  const rif = righe[0].exp;
+  return `<h3>${titolo}</h3>${nota ? `<p>${nota}</p>` : ""}<div class="box"><table><tr><th>Strategia</th><th>Eseguiti</th><th>Win rate</th><th>Expectancy</th><th>R totali</th><th>TP / SL / Fine</th></tr>
+${righe.map((r, i) => `<tr><td>${r.nome}${r.tim != null && i ? `<br><small>ingresso medio al ${f1(r.tim)}% della finestra</small>` : ""}</td><td>${r.n}<br><small>${f1(r.fill)}% di ${r.base}</small></td><td>${f1(r.wr)}%</td>
+<td class="${i === 0 ? "" : r.exp >= rif ? "pos" : "neg"}"><b>${f2(r.exp)}R</b></td><td>${f2(r.tot)}R</td><td>${f1(r.tp)} / ${f1(r.sl)} / ${f1(r.fine)}%</td></tr>`).join("")}</table></div>`;
+}
+function paginaStat(d, g, t, x) {
   const cella = g => `<td class="${g.exp >= d.exp ? "pos" : "neg"}"><b>${f2(g.exp)}R</b><br><small>${f1(g.da)}–${f1(g.a)}</small></td>`;
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Analisi statistiche C2</title><style>
@@ -191,7 +261,7 @@ table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:
 th:first-child,td:first-child{text-align:left;min-width:110px;width:40%}th{color:#4a5568;font-weight:600}small{color:#6b7280;font-weight:400}.pos{color:#15803d}.neg{color:#b91c1c}
 </style></head><body>
 <h1>Analisi statistiche · Metodo C2</h1>
-<p>Tutte le analisi sui backtest delle finestre del Diario in un'unica pagina: <a href="#s1">1 · Timing d'ingresso</a> · <a href="#s2">2 · AVG sotto e sopra il 6%</a> · <a href="#s3">3 · Media a 200 giorni</a> · <a href="#s4">4 · Statistiche stagionali fuori campione</a>.</p>
+<p>Tutte le analisi sui backtest delle finestre del Diario in un'unica pagina: <a href="#s1">1 · Timing d'ingresso</a> · <a href="#s2">2 · AVG sotto e sopra il 6%</a> · <a href="#s3">3 · Media a 200 giorni</a> · <a href="#s4">4 · Statistiche stagionali fuori campione</a> · <a href="#s5">5 · Strategia ordine al DD medio</a>.</p>
 ${t ? `<h2 id="s1">1 · Timing d'ingresso</h2>${sezioneTiming(t, 1)}` : ""}
 ${g ? `<h2 id="s2">2 · AVG sotto e sopra il 6%</h2><p>Le sezioni 2 e 3 usano <b>tutti</b> i trade C2 dal 2006 con le regole attuali (filtri 80%): ${g.tutti.n} trade, win rate ${f1(g.tutti.wr)}%, expectancy <b>${f2(g.tutti.exp)}R</b>, ${f2(g.tutti.tot)}R totali. Con rischio 1% a trade, 1R = 1% del conto.</p>
 ${tabGruppi("Due gruppi", "AVG medio del Diario della stagionalità.", g.avg, g.tutti.exp)}
@@ -211,6 +281,12 @@ ${d.righe.map(r => `<tr><td>${r.nome}</td><td>${r.rho == null ? "—" : f2(r.rho
 </table></div>
 <p>Sotto ogni expectancy l'intervallo dei valori della statistica in quel gruppo. Asset senza dati: ${d.senzaDati.join(", ") || "nessuno"}.</p>
 
+${x ? `<h2 id="s5">5 · Strategia alternativa: ordine al DD medio</h2>
+<p>Invece di aspettare la C2, si mette un ordine limite a una distanza pari al DD medio della stagionalità (colonna DD Medio del Diario), misurata dalla chiusura del giorno prima dell'inizio finestra. Se il prezzo ci arriva entro la finestra si entra; se apre già oltre il livello si entra all'apertura. TP = AVG medio, SL = metà AVG dal prezzo d'ingresso, chiusura a fine finestra. Sulla candela d'ingresso conta solo lo SL (ipotesi prudente: non sappiamo se il prezzo è sceso ancora dopo l'ingresso). Nessun costo o spread.</p>
+<p>${x.finestre} finestre, ${x.finestreAnni} finestre-anno dal 2006. «Eseguiti» = trade fatti e % delle finestre-anno in cui l'ordine è scattato.</p>
+${tabDD("Confronto con la C2", "In verde le strategie con expectancy più alta della C2.", x.righe)}
+${tabDD("L'ordine scatta negli anni peggiori?", "Come va la C2 negli anni in cui il prezzo scende fino al DD medio e in quelli in cui non ci arriva. Se la C2 rende molto meno negli anni «scatta», l'ordine al DD seleziona proprio gli anni difficili.", x.selezione)}
+${tabDD("Usarle insieme", "Per finestra-anno: una sola strategia, entrambe come trade separati, oppure l'ordine al DD con la C2 come riserva quando l'ordine non scatta.", x.combo)}` : ""}
 </body></html>`;
 }
 
@@ -231,6 +307,8 @@ const riassuntoGruppi = ${riassuntoGruppi.toString()};
 const sezioneTiming = ${T.sezioneTiming.toString()};
 const statistiche = ${T.statistiche.toString()};
 const riassunto = ${T.riassunto.toString()};
+const riassuntoDD = ${riassuntoDD.toString()};
+const tabDD = ${tabDD.toString()};
 const paginaStat = ${paginaStat.toString()};
 const ASSET = ${JSON.stringify(assets)};
 (async () => {
@@ -247,7 +325,7 @@ const ASSET = ${JSON.stringify(assets)};
   }
   await Promise.all([lavora(), lavora(), lavora(), lavora()]);
   const vuoto = p => ({ asset: p.asset, conDati: p.conDati, finestre: 0, base: [], filtrati: [], confronto: { pari: 0, totale: 0 } });
-  const html = paginaStat(riassuntoStat(parti), riassuntoGruppi(parti), riassunto(parti.map(p => p.timing || vuoto(p))));
+  const html = paginaStat(riassuntoStat(parti), riassuntoGruppi(parti), riassunto(parti.map(p => p.timing || vuoto(p))), riassuntoDD(parti));
   document.open(); document.write(html); document.close();
 })();
 </script></body></html>`;
@@ -274,3 +352,5 @@ module.exports.calcolaAsset = calcolaAsset;
 module.exports.riassuntoGruppi = riassuntoGruppi;
 module.exports.paginaStat = paginaStat;
 module.exports.paginaCaricamento = paginaCaricamento;
+module.exports.riassuntoDD = riassuntoDD;
+module.exports.tradeDD = tradeDD;

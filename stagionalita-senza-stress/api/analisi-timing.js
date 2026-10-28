@@ -23,7 +23,7 @@ async function leggiDiario() {
     if (!m || !r[c("ID")]) return null;
     const tv = {}; anni.forEach(a => { const v = num(r[a.i]); if (v != null) tv[a.y] = v; });
     return { id: String(r[c("ID")]).trim(), asset: String(r[c("Asset")]).trim(), long: !/SHORT/i.test(r[c("Direzione")]),
-      avg: num(r[c("AVG Medio")]), mdI: m[2] + "-" + m[1], mdF: m[5] + "-" + m[4], tv };
+      avg: num(r[c("AVG Medio")]), ddMed: Math.abs(num(r[c("DD Medio")]) || 0), mdI: m[2] + "-" + m[1], mdF: m[5] + "-" + m[4], tv };
   }).filter(f => f && f.avg > 0);
 }
 
