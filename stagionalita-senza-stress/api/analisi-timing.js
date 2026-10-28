@@ -85,9 +85,9 @@ function statistiche(trades) {
 const chiave = a => String(a || "").toUpperCase().replace(/^\^/, "");
 
 // Trade di un solo asset (tutte le sue finestre, anno per anno): una richiesta breve, senza timeout
-async function calcolaAsset(asset) {
-  const finestre = (await leggiDiario()).filter(f => chiave(f.asset) === chiave(asset));
-  const cs = finestre.length ? await storico(asset) : [];
+async function calcolaAsset(asset, pre) {
+  const finestre = pre ? pre.finestre : (await leggiDiario()).filter(f => chiave(f.asset) === chiave(asset));
+  const cs = pre ? pre.cs : (finestre.length ? await storico(asset) : []);
   const oggi = new Date().toISOString().slice(0, 10);
   const base = [], filtrati = [], confronto = { pari: 0, totale: 0 };
   if (cs.length) finestre.forEach(f => {
@@ -140,6 +140,7 @@ const statistiche = ${statistiche.toString()};
 const riassunto = ${riassunto.toString()};
 const f1 = ${f1.toString()};
 const f2 = ${f2.toString()};
+const sezioneTiming = ${sezioneTiming.toString()};
 const pagina = ${pagina.toString()};
 const ASSET = ${JSON.stringify(assets)};
 (async () => {
@@ -166,33 +167,36 @@ const ASSET = ${JSON.stringify(assets)};
 
 const f1 = n => n == null ? "—" : n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const f2 = n => n == null ? "—" : (n > 0 ? "+" : "") + n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-function pagina(d) {
+function sezioneTiming(d, n) {
   const riga = (et, s) => s.n ? `<tr><td>${et}</td><td>${s.n}</td><td>${f1(s.wr)}%</td><td class="${s.exp >= 0 ? "pos" : "neg"}"><b>${f2(s.exp)}R</b></td><td>${f1(s.tp)}%</td><td>${f1(s.fine)}%</td></tr>` : `<tr><td>${et}</td><td>0</td><td colspan="4">—</td></tr>`;
   const testa = `<tr><th>Timing</th><th>Trade</th><th>WR</th><th>Exp.</th><th>TP</th><th>Fine</th></tr>`;
   const tab = arr => `<table>${testa}${arr.map(s => riga(`${s.da}–${s.a}%`, s)).join("")}</table>`;
+  return `<p>WR = win rate · Exp. = expectancy (R medio per trade) · TP = % chiusi a take profit · Fine = % chiusi a fine finestra.</p>
+<p>${d.finestre} finestre del Diario, ${d.asset} asset, anni ${d.anni ? d.anni.join("–") : "—"}. Backtest ricalcolato sulle candele daily Yahoo (stessi simboli del bot). Timing = % della finestra già trascorsa alla chiusura della C2.</p>
+<div class="kpi" style="margin-top:12px">
+<div>Trade totali<b>${d.totale.n}</b></div><div>Expectancy totale<b class="${d.totale.exp >= 0 ? "pos" : "neg"}">${f2(d.totale.exp)}R</b></div>
+<div>Win rate<b>${f1(d.totale.wr)}%</b></div><div>Coincidenza con TradingView<b>${d.confronto.totale ? f1(d.confronto.pari / d.confronto.totale * 100) + "%" : "—"}</b></div>
+</div>
+<h3>${n}.1 · Risultati per fascia di timing (senza filtro 80%)</h3><div class="box">${tab(d.fasce)}</div>
+<h3>${n}.2 · Con il filtro dell'80% del movimento</h3><div class="box">${tab(d.fasceFiltro80)}</div>
+<h3>${n}.3 · Se non si entra più oltre una certa %</h3>
+<div class="box"><table><tr><th>Fino al</th><th>Trade</th><th>Exp. tenuti</th><th>Esclusi</th><th>+ filtro 80%</th></tr>
+${d.soglie.map(s => `<tr><td>${s.soglia}%</td><td>${s.dentro.n}</td><td class="${s.dentro.exp >= 0 ? "pos" : "neg"}"><b>${f2(s.dentro.exp)}R</b></td><td class="${(s.fuori.exp || 0) >= 0 ? "pos" : "neg"}">${s.fuori.n ? f2(s.fuori.exp) + "R·" + s.fuori.n : "—"}</td><td>${s.filtro80dentro.n ? f2(s.filtro80dentro.exp) + "R" : "—"}</td></tr>`).join("")}</table></div>
+<p>“Exp. tenuti” = expectancy dei trade entrati fino a quella % di finestra; “Esclusi” = expectancy e numero dei trade entrati dopo.</p>
+<p>Coincidenza con TradingView: trade dello stesso anno con esito entro ±0,15R su ${d.confronto.totale} confrontabili.</p>`;
+}
+function pagina(d) {
   return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Analisi timing C2</title><style>
 body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;background:#f6f7f3;color:#1b2433}
-h1{font-size:22px;margin:0 0 4px}h2{font-size:17px;margin:24px 0 8px}p{font-size:14px;line-height:1.5;color:#4a5568;margin:4px 0}
+h1{font-size:22px;margin:0 0 4px}h3{font-size:15px;margin:20px 0 8px}h2{font-size:17px;margin:24px 0 8px}p{font-size:14px;line-height:1.5;color:#4a5568;margin:4px 0}
 .box{background:#fff;border:1px solid #dce1e8;border-radius:12px;padding:12px;overflow-x:auto}
 table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}th,td{padding:6px 5px;border-bottom:1px solid #eef0f3;text-align:right;white-space:nowrap}
 th:first-child,td:first-child{text-align:left}th{color:#4a5568;font-weight:600}.pos{color:#15803d}.neg{color:#b91c1c}
 .kpi{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.kpi div{background:#fff;border:1px solid #dce1e8;border-radius:12px;padding:10px}.kpi b{display:block;font-size:20px}
 </style></head><body>
 <h1>Analisi timing d'ingresso · Metodo C2</h1>
-<p>WR = win rate · Exp. = expectancy (R medio per trade) · TP = % chiusi a take profit · Fine = % chiusi a fine finestra.</p>
-<p>${d.finestre} finestre del Diario, ${d.asset} asset, anni ${d.anni ? d.anni.join("–") : "—"}. Backtest ricalcolato sulle candele daily Yahoo (stessi simboli del bot). Timing = % della finestra già trascorsa alla chiusura della C2.</p>
-<div class="kpi" style="margin-top:12px">
-<div>Trade totali<b>${d.totale.n}</b></div><div>Expectancy totale<b class="${d.totale.exp >= 0 ? "pos" : "neg"}">${f2(d.totale.exp)}R</b></div>
-<div>Win rate<b>${f1(d.totale.wr)}%</b></div><div>Coincidenza con TradingView<b>${d.confronto.totale ? f1(d.confronto.pari / d.confronto.totale * 100) + "%" : "—"}</b></div>
-</div>
-<h2>1 · Risultati per fascia di timing (senza filtro 80%)</h2><div class="box">${tab(d.fasce)}</div>
-<h2>2 · Con il filtro dell'80% del movimento</h2><div class="box">${tab(d.fasceFiltro80)}</div>
-<h2>3 · Se non si entra più oltre una certa %</h2>
-<div class="box"><table><tr><th>Fino al</th><th>Trade</th><th>Exp. tenuti</th><th>Esclusi</th><th>+ filtro 80%</th></tr>
-${d.soglie.map(s => `<tr><td>${s.soglia}%</td><td>${s.dentro.n}</td><td class="${s.dentro.exp >= 0 ? "pos" : "neg"}"><b>${f2(s.dentro.exp)}R</b></td><td class="${(s.fuori.exp || 0) >= 0 ? "pos" : "neg"}">${s.fuori.n ? f2(s.fuori.exp) + "R·" + s.fuori.n : "—"}</td><td>${s.filtro80dentro.n ? f2(s.filtro80dentro.exp) + "R" : "—"}</td></tr>`).join("")}</table></div>
-<p>“Exp. tenuti” = expectancy dei trade entrati fino a quella % di finestra; “Esclusi” = expectancy e numero dei trade entrati dopo.</p>
-<p style="margin-top:12px">Coincidenza con TradingView: trade dello stesso anno con esito entro ±0,15R su ${d.confronto.totale} confrontabili. Asset senza dati: ${d.senzaDati.join(", ") || "nessuno"}.</p>
+${sezioneTiming(d, 1)}
 </body></html>`;
 }
 
@@ -204,8 +208,9 @@ module.exports = async (req, res) => {
       res.setHeader("Cache-Control", "s-maxage=21600, stale-while-revalidate=86400");
       return res.status(200).json(d);
     }
-    const assets = [...new Set((await leggiDiario()).map(f => chiave(f.asset)))].sort();
-    res.setHeader("Cache-Control", "s-maxage=600");
+    // L'analisi del timing ora è nella pagina unica delle statistiche
+    res.setHeader("Cache-Control", "no-store");
+    return res.redirect(302, "/api/analisi-statistiche");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
     res.status(200).send(paginaCaricamento(assets));
   } catch (err) {
@@ -222,3 +227,4 @@ module.exports.calcolaAsset = calcolaAsset;
 module.exports.leggiDiario = leggiDiario;
 module.exports.storico = storico;
 module.exports.chiave = chiave;
+module.exports.sezioneTiming = sezioneTiming;
