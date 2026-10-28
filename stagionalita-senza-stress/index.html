@@ -849,7 +849,7 @@ function viewDetail(items, id){
         <div class="chart">${barChart(bt.years)}</div>
         <div class="rules">
           <div class="rule"><b>Attesa</b>Dentro la finestra stagionale si aspettano due candele daily ${contr}, cioè contrarie alla direzione.</div>
-          <div class="rule"><b>Ingresso</b>Alla chiusura della seconda candela contraria (C2), a favore della stagionalità.</div>
+          <div class="rule"><b>Ingresso</b>Alla chiusura della seconda candela contraria (C2), a favore della stagionalità. Nessun ingresso se la C2 chiude oltre l'80% della durata della finestra o se il prezzo ha già fatto l'80% del movimento medio.</div>
           <div class="rule"><b>Uscita</b>Stop a −1R, target a +2R; se nessuno dei due viene toccato, chiusura a fine stagionalità.</div>
         </div>
       </div>
