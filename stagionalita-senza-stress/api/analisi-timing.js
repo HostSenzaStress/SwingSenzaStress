@@ -1,7 +1,7 @@
 // Analisi del timing d'ingresso del Metodo C2 su tutte le finestre del Diario.
 // Rifà il backtest anno per anno sulle candele daily di Yahoo (stessi simboli del bot) e mostra
 // win rate, expectancy ed esiti per fasce di "% di finestra trascorsa all'ingresso".
-// Pagina interna, non collegata dal menu: /api/analisi-timing  (JSON: ?formato=json)
+// Pagina interna, non collegata dal menu: /api/analisi-timing (scarica gli asset uno alla volta: ?asset=NDX)
 
 const { candele, simbolo } = require("./candles.js");
 const { parseCSV } = require("./data.js");
@@ -82,18 +82,15 @@ function statistiche(trades) {
     fine: trades.filter(t => t.uscita === "Fine").length / n * 100 };
 }
 
-async function calcola() {
-  const finestre = await leggiDiario();
-  const assets = [...new Set(finestre.map(f => f.asset.toUpperCase().replace(/^\^/, "")))];
-  const dati = {};
-  for (let i = 0; i < assets.length; i += 8) {
-    await Promise.all(assets.slice(i, i + 8).map(async a => { try { dati[a] = await storico(a); } catch (e) { dati[a] = []; } }));
-  }
+const chiave = a => String(a || "").toUpperCase().replace(/^\^/, "");
+
+// Trade di un solo asset (tutte le sue finestre, anno per anno): una richiesta breve, senza timeout
+async function calcolaAsset(asset) {
+  const finestre = (await leggiDiario()).filter(f => chiave(f.asset) === chiave(asset));
+  const cs = finestre.length ? await storico(asset) : [];
   const oggi = new Date().toISOString().slice(0, 10);
   const base = [], filtrati = [], confronto = { pari: 0, totale: 0 };
-  finestre.forEach(f => {
-    const cs = dati[f.asset.toUpperCase().replace(/^\^/, "")] || [];
-    if (!cs.length) return;
+  if (cs.length) finestre.forEach(f => {
     const scavalca = f.mdF < f.mdI;
     for (let y = ANNO_DA; y <= +oggi.slice(0, 4); y++) {
       const ini = `${y}-${f.mdI}`, fin = `${scavalca ? y + 1 : y}-${f.mdF}`;
@@ -109,16 +106,62 @@ async function calcola() {
       if (tf) filtrati.push({ timing: (ms(tf.d) - ms(ini)) / 864e5 / giorni * 100, R: tf.R, uscita: tf.uscita });
     }
   });
+  return { asset, finestre: finestre.length, conDati: cs.length > 0, base, filtrati, confronto };
+}
+
+// Mette insieme i risultati di tutti gli asset (gira anche nel browser: niente dipendenze esterne)
+function riassunto(parti) {
+  const base = [], filtrati = [], confronto = { pari: 0, totale: 0 };
+  let finestre = 0;
+  parti.forEach(p => { finestre += p.finestre; base.push(...p.base); filtrati.push(...p.filtrati);
+    confronto.pari += p.confronto.pari; confronto.totale += p.confronto.totale; });
   const fasce = [[0, 20], [20, 40], [40, 60], [60, 80], [80, 101]];
-  const perFascia = arr => fasce.map(([a, b]) => ({ da: a, a: Math.min(b, 100), ...statistiche(arr.filter(t => t.timing >= a && t.timing < b)) }));
+  const perFascia = arr => fasce.map(([a, b]) => Object.assign({ da: a, a: Math.min(b, 100) }, statistiche(arr.filter(t => t.timing >= a && t.timing < b))));
   const soglie = [30, 40, 50, 60, 70, 80, 90, 100].map(x => ({
     soglia: x, dentro: statistiche(base.filter(t => t.timing <= x)), fuori: statistiche(base.filter(t => t.timing > x)),
     filtro80dentro: statistiche(filtrati.filter(t => t.timing <= x)) }));
   const anniTrade = base.map(t => t.anno);
-  return { finestre: finestre.length, asset: assets.length, senzaDati: assets.filter(a => !(dati[a] || []).length),
+  return { finestre, asset: parti.length, senzaDati: parti.filter(p => !p.conDati).map(p => p.asset),
     anni: anniTrade.length ? [Math.min(...anniTrade), Math.max(...anniTrade)] : null,
     totale: statistiche(base), totaleFiltro80: statistiche(filtrati),
-    fasce: perFascia(base), fasceFiltro80: perFascia(filtrati), soglie, confronto, trade: base };
+    fasce: perFascia(base), fasceFiltro80: perFascia(filtrati), soglie, confronto };
+}
+
+// Pagina che scarica gli asset uno alla volta, mostra l'avanzamento e calcola le statistiche nel browser
+function paginaCaricamento(assets) {
+  return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Analisi timing C2</title><style>body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:24px 16px;background:#f6f7f3;color:#1b2433}
+.bar{height:10px;background:#dce1e8;border-radius:6px;overflow:hidden;margin:14px 0}.bar i{display:block;height:100%;width:0;background:#2563b8}p{font-size:15px;color:#4a5568}</style></head>
+<body><h1 style="font-size:22px">Analisi timing d'ingresso · Metodo C2</h1>
+<p id="st">Ricalcolo del backtest in corso: 0 / ${assets.length} asset…</p><div class="bar"><i id="pb"></i></div>
+<p>Ci vuole circa un minuto. Lascia la pagina aperta.</p>
+<script>
+const statistiche = ${statistiche.toString()};
+const riassunto = ${riassunto.toString()};
+const f1 = ${f1.toString()};
+const f2 = ${f2.toString()};
+const pagina = ${pagina.toString()};
+const ASSET = ${JSON.stringify(assets)};
+(async () => {
+  const parti = []; let fatti = 0, i = 0;
+  async function lavora() {
+    while (i < ASSET.length) {
+      const a = ASSET[i++];
+      let p = null;
+      for (let t = 0; t < 3 && !p; t++) {
+        try { const r = await fetch("/api/analisi-timing?asset=" + encodeURIComponent(a)); if (r.ok) p = await r.json(); } catch (e) {}
+      }
+      parti.push(p || { asset: a, finestre: 0, conDati: false, base: [], filtrati: [], confronto: { pari: 0, totale: 0 } });
+      fatti++;
+      document.getElementById("st").textContent = "Ricalcolo del backtest in corso: " + fatti + " / " + ASSET.length + " asset…";
+      document.getElementById("pb").style.width = (fatti / ASSET.length * 100) + "%";
+    }
+  }
+  await Promise.all([lavora(), lavora(), lavora(), lavora()]);
+  const html = pagina(riassunto(parti));
+  document.open(); document.write(html); document.close();
+})();
+</script></body></html>`;
 }
 
 const f1 = n => n == null ? "—" : n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -155,11 +198,16 @@ ${d.soglie.map(s => `<tr><td>${s.soglia}%</td><td>${s.dentro.n}</td><td class="$
 
 module.exports = async (req, res) => {
   try {
-    const d = await calcola();
-    res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=86400");
-    if (req.query && req.query.formato === "json") return res.status(200).json(d);
+    const q = req.query || {};
+    if (q.asset) {
+      const d = await calcolaAsset(q.asset);
+      res.setHeader("Cache-Control", "s-maxage=21600, stale-while-revalidate=86400");
+      return res.status(200).json(d);
+    }
+    const assets = [...new Set((await leggiDiario()).map(f => chiave(f.asset)))].sort();
+    res.setHeader("Cache-Control", "s-maxage=600");
     res.setHeader("Content-Type", "text/html; charset=utf-8");
-    res.status(200).send(pagina(d));
+    res.status(200).send(paginaCaricamento(assets));
   } catch (err) {
     res.setHeader("Cache-Control", "no-store");
     res.status(500).send("Errore nell'analisi: " + String((err && err.message) || err));
@@ -169,3 +217,5 @@ module.exports = async (req, res) => {
 module.exports.c2 = c2;
 module.exports.statistiche = statistiche;
 module.exports.pagina = pagina;
+module.exports.riassunto = riassunto;
+module.exports.calcolaAsset = calcolaAsset;
