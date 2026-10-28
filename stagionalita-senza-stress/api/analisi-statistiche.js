@@ -36,7 +36,8 @@ function tradeC2(cs, ini, fin, long, avg) {
     sma = Math.round(segno * (e / m0 - 1) * 10000) / 100;
     pend = Math.round(segno * (m0 / m20 - 1) * 10000) / 100;
   }
-  const esito = (R, u) => ({ R, u, sma, pend });
+  const tC2 = durata > 0 ? (ms(cs[iE].time) - ms(ini)) / durata * 100 : 0;
+  const esito = (R, u) => ({ R, u, sma, pend, tC2 });
   const stop = long ? e * (1 - risk / 100) : e * (1 + risk / 100), tgt = long ? e * (1 + avg / 100) : e * (1 - avg / 100);
   let ult = iE;
   for (let j = iE + 1; j < cs.length && dentro(cs[j]); j++) {
@@ -110,7 +111,7 @@ async function calcolaAsset(asset) {
       [0.5, 1, 1.5].forEach(k => { dd["d" + k] = tradeDD(cs, ini, fin, f.long, f.avg, f.ddMed * k); });
       dd.oos = ddOos != null ? tradeDD(cs, ini, fin, f.long, f.avg, ddOos) : undefined;
       anni.push({ y, ret: Math.round(s.ret * 100) / 100, dd: Math.round(s.dd * 100) / 100,
-        R: t ? t.R : null, u: t ? t.u : null, sma: t ? t.sma : null, pend: t ? t.pend : null, ddS: dd });
+        R: t ? t.R : null, u: t ? t.u : null, tC2: t ? t.tC2 : null, sma: t ? t.sma : null, pend: t ? t.pend : null, ddS: dd });
     }
     out.push({ id: f.id, asset: f.asset, long: f.long, avg: f.avg, ddMed: f.ddMed, anni });
   });
@@ -196,7 +197,14 @@ function riassuntoDD(parti) {
       st("C2 negli anni in cui l'ordine NON scatta", noDD1.filter(o => o.R != null).map(o => ({ R: o.R, u: o.u })), noDD1.length)],
     combo: [st("Solo C2", c2, conDD.length),
       st("C2 + ordine al DD medio (due trade separati)", [...c2, ...preso("d1")], conDD.length),
-      st("Ordine al DD medio, altrimenti C2", conDD.map(o => o.ddS.d1 || (o.R != null ? { R: o.R, u: o.u } : null)).filter(Boolean), conDD.length)]
+      st("Il primo che scatta tra ordine al DD e C2 (replicabile)", conDD.map(o => {
+        const c = o.R != null ? { R: o.R, u: o.u, timing: o.tC2 } : null, dd = o.ddS.d1;
+        if (dd && (!c || dd.timing <= c.timing)) return dd; // ordine eseguito prima della C2 (stesso giorno: vale l'ordine)
+        return c;                                           // C2 prima: l'ordine si cancella
+      }).filter(Boolean), conDD.length),
+      st("Ordine al DD, altrimenti C2 (col senno di poi: NON replicabile)", conDD.map(o => o.ddS.d1 || (o.R != null ? { R: o.R, u: o.u } : null)).filter(Boolean), conDD.length)],
+    primo: [st("C2 arrivata prima dell'ordine al DD", conDD.filter(o => o.ddS.d1 && o.R != null && o.tC2 < o.ddS.d1.timing).map(o => ({ R: o.R, u: o.u })), conDD.filter(o => o.ddS.d1).length),
+      st("Ordine al DD arrivato prima (o senza C2)", conDD.filter(o => o.ddS.d1 && (o.R == null || o.tC2 >= o.ddS.d1.timing)).map(o => o.ddS.d1), conDD.filter(o => o.ddS.d1).length)]
   };
 }
 
@@ -286,7 +294,8 @@ ${x ? `<h2 id="s5">5 · Strategia alternativa: ordine al DD medio</h2>
 <p>${x.finestre} finestre, ${x.finestreAnni} finestre-anno dal 2006. «Eseguiti» = trade fatti e % delle finestre-anno in cui l'ordine è scattato.</p>
 ${tabDD("Confronto con la C2", "In verde le strategie con expectancy più alta della C2.", x.righe)}
 ${tabDD("L'ordine scatta negli anni peggiori?", "Come va la C2 negli anni in cui il prezzo scende fino al DD medio e in quelli in cui non ci arriva. Se la C2 rende molto meno negli anni «scatta», l'ordine al DD seleziona proprio gli anni difficili.", x.selezione)}
-${tabDD("Usarle insieme", "Per finestra-anno: una sola strategia, entrambe come trade separati, oppure l'ordine al DD con la C2 come riserva quando l'ordine non scatta.", x.combo)}` : ""}
+${tabDD("Usarle insieme", "Per finestra-anno: una sola strategia, entrambe come trade separati, oppure ordine al DD e C2 attivi insieme dove vale il primo che scatta (l'altro si cancella). L'ultima riga sceglie l'ordine al DD sapendo già che il prezzo ci arriverà: serve solo come confronto, nella realtà non si può fare.", x.combo)}
+${x.primo ? tabDD("Negli anni in cui l'ordine al DD scatta, chi arriva prima?", "Se la C2 arriva prima, nella realtà sei già dentro con la C2 quando il prezzo scende al DD medio.", x.primo) : ""}` : ""}
 </body></html>`;
 }
 
