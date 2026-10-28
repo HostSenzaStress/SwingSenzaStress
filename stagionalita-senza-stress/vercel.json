@@ -1,6 +1,14 @@
 {
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/((?!api/|favicon\\.svg$).*)", "destination": "/" }
-  ]
+    {
+      "source": "/((?!api/|favicon\\.svg$).*)",
+      "destination": "/"
+    }
+  ],
+  "functions": {
+    "api/analisi-timing.js": {
+      "maxDuration": 60
+    }
+  }
 }
