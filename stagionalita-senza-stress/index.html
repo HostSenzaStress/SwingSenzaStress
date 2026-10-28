@@ -212,6 +212,8 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .minis.m4{grid-template-columns:repeat(4,minmax(0,1fr))}
 @media (max-width:560px){.minis.m4{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .note{font-size:13px;color:var(--fg-3);margin:0;max-width:90ch}
+.avg-warn{display:flex;gap:12px;align-items:flex-start;background:var(--warn-soft);border:1.5px solid var(--warn);border-radius:14px;padding:14px 16px;margin:14px 0}
+.avg-warn .ic{font-size:22px;line-height:1}.avg-warn b{color:var(--warn)}.avg-warn p{margin:4px 0 0;font-size:14px;line-height:1.5;color:var(--fg-2, inherit)}
 
 /* Backtest */
 .bt{border:1px solid var(--border);border-radius:calc(var(--radius)*1.6);overflow:hidden;background:var(--surface)}
@@ -772,13 +774,25 @@ function viewRadar(items){
   ${disclaimer()}`;
 }
 
+// Nota AVG basso: dati del backtest C2 su 1.703 trade (2006-2025, regole attuali con filtri 80%)
+const AVG_MIN = 6;
+const avgBasso = it => it.avg != null && it.avg < AVG_MIN;
+const chipAvg = it => avgBasso(it) ? `<span class="tag chip-warn" title="AVG medio sotto il ${AVG_MIN}%: rendimento storico più basso">⚠ AVG &lt; ${AVG_MIN}%</span>` : "";
+function notaAvg(it){
+  if (!avgBasso(it)) return "";
+  return `<div class="avg-warn" role="note"><span class="ic" aria-hidden="true">⚠️</span><div><b>AVG medio inferiore al ${AVG_MIN}%</b>
+    <p>Nei backtest del Metodo C2 (1.703 trade dal 2006) le stagionalità con AVG medio sotto il ${AVG_MIN}% hanno avuto un <b>win rate del 51,8%</b> e un'expectancy di <b>+0,36R</b> per trade,
+    contro il 62,7% e +0,58R di quelle con AVG dal ${AVG_MIN}% in su. Il motivo: lo stop loss (metà dell'AVG) è più vicino al prezzo e viene colpito più spesso (43% dei trade contro 30%).
+    Restano in media positive, ma con un vantaggio minore: valuta un rischio ridotto.</p></div></div>`;
+}
+
 function card(it){
   const w10 = it.bt.wr10;
   return `<a class="card ${it.status === "ATTIVA" ? "is-active" : ""}" href="/dettaglio/${encodeURIComponent(it.id)}">
     <div class="card-top">${clsHover(clsBig(it.classe, 56), it.classe)}
       <div class="card-id">
         <div class="asset-line"><span class="asset">${esc(it.nome || it.asset)}</span>${it.nome ? `<span class="tk">${esc(it.asset)}</span>` : ""}${flagTag(it)}</div>
-        <div class="sub">${dirHtml(it.dir)}<span>·</span><span>${dShort(it.start)} → ${dShort(it.end)}</span></div>
+        <div class="sub">${dirHtml(it.dir)}<span>·</span><span>${dShort(it.start)} → ${dShort(it.end)}</span>${chipAvg(it)}</div>
       </div>${stTagIt(it, true)}</div>
     <div class="kpis">
       <div class="kpi"><div class="k">AVG medio</div><div class="v ${it.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(it.avg)}</div></div>
@@ -819,6 +833,7 @@ function viewDetail(items, id){
       <div class="big-avg ${L ? "c-long" : "c-short"}">${fmtPct(it.avg)}</div>
       <div class="s">Movimento medio ${L ? "al rialzo" : "al ribasso"} nella finestra</div></div>
   </section>
+  ${notaAvg(it)}
 
   <div class="period ${it.status === "ATTIVA" ? "is-active" : ""}">
     <div class="prow"><span><b>${dLong(it.start)}</b> → <b>${dLong(it.end)}</b>${days != null ? ` · ${days} giorni` : ""}</span><span>Avanzamento ${Math.round(it.progress)}%</span></div>
@@ -901,7 +916,7 @@ function viewCalendar(items){
     ${g.items.map(i => `<a class="row" href="/dettaglio/${encodeURIComponent(i.id)}">
       <div class="date"><small>${MESI[i.start.getMonth()]}</small><b>${String(i.start.getDate()).padStart(2,"0")}</b></div>
       <div class="mid"><div class="asset-line"><span class="asset" style="font-size:16px">${esc(i.nome || i.asset)}</span>${i.nome ? `<span class="tk">${esc(i.asset)}</span>` : ""}${flagTag(i)}</div>
-        <div class="meta">${dirHtml(i.dir)}<span>${dShort(i.start)} → ${dShort(i.end)}</span>${stTagIt(i)}<span>AVG <b class="${i.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(i.avg)}</b></span></div></div>
+        <div class="meta">${dirHtml(i.dir)}<span>${dShort(i.start)} → ${dShort(i.end)}</span>${stTagIt(i)}<span>AVG <b class="${i.dir === "LONG" ? "c-long" : "c-short"}">${fmtPct(i.avg)}</b></span>${chipAvg(i)}</div></div>
       <div class="sc">Classe<b>${i.classe ? esc(i.classe) : "—"}</b></div></a>`).join("")}</section>`).join("");
   return `<div class="cal-hero"><svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><rect width="44" height="44" rx="11" fill="var(--navy)"/><rect x="11" y="13" width="22" height="19" rx="3" fill="none" stroke="var(--blue-2)" stroke-width="2"/><path d="M11 19h22M17 10v6M27 10v6" stroke="var(--blue-2)" stroke-width="2" stroke-linecap="round"/></svg>
     <div><h1>Calendario stagionalità</h1><p>Tutte le finestre ordinate per data di inizio.</p></div></div>
