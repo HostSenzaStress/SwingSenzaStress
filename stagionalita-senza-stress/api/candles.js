@@ -64,6 +64,47 @@ function candele(dati, sym) {
   return out;
 }
 
+// Futures: candele daily ricostruite dalle barre ORARIE con gli orari di sessione di TradingView
+// (sessione CME/Globex dalle 17:00 di Chicago del giorno prima alle 16:00 del giorno stesso).
+// Il daily Yahoo dei futures usa la data/chiusura di regolamento e sulle candele piccole può
+// dare un colore diverso da TradingView (es. NQ 28/10, NKD 29/10/2026): così grafico e trigger coincidono.
+const TZ_FUT = "America/Chicago";
+function candeleSessione(dati) {
+  const res = dati && dati.chart && dati.chart.result && dati.chart.result[0];
+  if (!res) return [];
+  const q = (res.indicators && res.indicators.quote && res.indicators.quote[0]) || {};
+  const out = [];
+  (res.timestamp || []).forEach((ts, i) => {
+    const o = q.open && q.open[i], h = q.high && q.high[i], l = q.low && q.low[i], c = q.close && q.close[i];
+    if (o == null || h == null || l == null || c == null) return;
+    const dt = new Date(ts * 1000);
+    let d = giorno(dt, TZ_FUT);
+    if (ora(dt, TZ_FUT) >= 17) d = piuUnGiorno(d);          // dalle 17:00 CT è la sessione del giorno dopo
+    const wd = new Date(d + "T12:00:00Z").getUTCDay();
+    if (wd === 6) d = piuUnGiorno(piuUnGiorno(d));           // sicurezza: niente candele di sabato/domenica
+    else if (wd === 0) d = piuUnGiorno(d);
+    const u = out[out.length - 1];
+    if (u && u.time === d) { u.high = Math.max(u.high, h); u.low = Math.min(u.low, l); u.close = c; }
+    else out.push({ time: d, open: o, high: h, low: l, close: c });
+  });
+  const ultima = out[out.length - 1];
+  if (ultima) {
+    const adesso = new Date(), oggi = giorno(adesso, TZ_FUT), hh = ora(adesso, TZ_FUT);
+    ultima.live = ultima.time > oggi || (ultima.time === oggi && hh < 16);
+  }
+  return out;
+}
+
+async function yahoo(path) {
+  let errore = "";
+  for (const host of ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]) {
+    const r = await fetch(host + path, { headers: { "User-Agent": "Mozilla/5.0 (stagionalita-senza-stress)" } });
+    if (r.ok) return r.json();
+    errore = "HTTP " + r.status;
+  }
+  throw new Error(errore);
+}
+
 module.exports = async (req, res) => {
   try {
     const asset = req.query && req.query.asset;
@@ -72,16 +113,23 @@ module.exports = async (req, res) => {
     const p1 = Math.floor((from ? Date.parse(from + "T00:00:00Z") : Date.now() - 120 * 864e5) / 1000) - 86400;
     const p2 = Math.floor(Date.now() / 1000) + 86400;
     const sym = simbolo(asset);
-    const path = "/v8/finance/chart/" + encodeURIComponent(sym) + "?period1=" + p1 + "&period2=" + p2 + "&interval=1d";
-    let dati = null, errore = "";
-    for (const host of ["https://query1.finance.yahoo.com", "https://query2.finance.yahoo.com"]) {
-      const r = await fetch(host + path, { headers: { "User-Agent": "Mozilla/5.0 (stagionalita-senza-stress)" } });
-      if (r.ok) { dati = await r.json(); break; }
-      errore = "HTTP " + r.status;
+    const q = "/v8/finance/chart/" + encodeURIComponent(sym) + "?period1=" + p1 + "&period2=" + p2;
+    let out = null, fonte = "1d";
+    // Yahoo dà le barre orarie solo per gli ultimi ~730 giorni
+    if (/=F$/.test(sym) && Date.now() / 1000 - p1 < 700 * 86400) {
+      try {
+        const c = candeleSessione(await yahoo(q + "&interval=1h"));
+        if (c.length) { out = c; fonte = "1h-sessione"; }
+      } catch (e) { /* riserva: daily */ }
     }
-    if (!dati) throw new Error("Dati non disponibili per " + sym + " (" + errore + ")");
+    if (!out) {
+      let dati;
+      try { dati = await yahoo(q + "&interval=1d"); }
+      catch (e) { throw new Error("Dati non disponibili per " + sym + " (" + e.message + ")"); }
+      out = candele(dati, sym);
+    }
     res.setHeader("Cache-Control", "s-maxage=600, stale-while-revalidate=1800");
-    res.status(200).json({ ok: true, asset, symbol: sym, candles: candele(dati, sym) });
+    res.status(200).json({ ok: true, asset, symbol: sym, source: fonte, candles: out });
   } catch (err) {
     res.setHeader("Cache-Control", "no-store");
     res.status(502).json({ ok: false, error: String((err && err.message) || err) });
@@ -89,4 +137,5 @@ module.exports = async (req, res) => {
 };
 
 module.exports.candele = candele;
+module.exports.candeleSessione = candeleSessione;
 module.exports.simbolo = simbolo;

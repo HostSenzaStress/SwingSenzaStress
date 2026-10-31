@@ -23,7 +23,7 @@ Se lo rendi privato, il sito mostra un avviso al posto delle stagionalità.
 
 ## Struttura
 - `index.html`: tutto il sito (home, calendario, dettaglio). Le pagine sono `/`, `/calendario`, `/dettaglio/<ID>`.
-- `api/candles.js`: candele daily dei futures per il grafico (Yahoo Finance, stessi dati del bot Telegram), es. `/api/candles?asset=NDX&from=2026-10-01`.
+- `api/candles.js`: candele daily per il grafico, es. `/api/candles?asset=NDX&from=2026-10-01`. Per i futures sono ricostruite dalle barre orarie Yahoo con la sessione di TradingView (17:00–16:00 ora di Chicago), così il grafico coincide con i trigger del Diario; il daily Yahoo resta come riserva.
 - `api/data.js`: legge il foglio e lo passa al sito. Le colonne vengono riconosciute dal nome dell'intestazione, quindi puoi spostarle senza rompere nulla, ma non rinominarle.
 - `vercel.json`: indirizza `/calendario` e `/dettaglio/...` verso `index.html`.
 
