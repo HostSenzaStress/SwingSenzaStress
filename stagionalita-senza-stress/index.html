@@ -185,6 +185,7 @@ select.sel{border:1px solid var(--border);border-radius:999px;padding:6px 12px;b
 .dhead{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
 .dhead h1{margin:0;font-size:clamp(28px,4.4vw,42px);font-weight:800;font-stretch:112%;letter-spacing:-.02em;line-height:1}
 .dhead .nm{color:var(--fg-3);font-size:16px}
+.dhead .idn{font-variant-numeric:tabular-nums;border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:600;color:var(--fg-2);background:var(--surface)}
 .keys{display:grid;grid-template-columns:auto 1fr 1fr;gap:12px}
 .key{border:1px solid var(--border);border-radius:calc(var(--radius)*1.6);padding:20px 22px;background:var(--surface);display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0}
 .key .k{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--fg-3);font-weight:600}
@@ -821,7 +822,7 @@ function viewDetail(items, id){
   return `
   <a class="back" href="/radar">← Torna al Radar</a>
   ${stateNotice()}
-  <div class="dhead"><h1>${esc(it.nome || it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.asset)}</span>` : ""}${clsTag(it.classe)}${stTagIt(it)}${flagTag(it)}</div>
+  <div class="dhead"><h1>${esc(it.nome || it.asset)}</h1>${it.nome ? `<span class="nm">${esc(it.asset)}</span>` : ""}<span class="nm idn" title="ID della stagionalità (lo stesso delle notifiche Telegram)">ID ${esc(it.id)}</span>${clsTag(it.classe)}${stTagIt(it)}${flagTag(it)}</div>
   ${esitoBox(it, true)}
 
   <section class="keys" aria-label="Dati principali">
